@@ -1,0 +1,202 @@
+/* ===============================
+   RESET
+================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+/* ===============================
+   HEADER (FIXED PROPERLY)
+================================ */
+.header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "brand actions"
+    "search search";
+
+  gap: 0.6rem;
+
+  padding: 0.9rem 1rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* brand */
+.header-left {
+  grid-area: brand;
+}
+
+.header-left h1 {
+  color: #2563eb;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* actions */
+.header-right {
+  grid-area: actions;
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+/* ===============================
+   HEADER ACTIONS
+================================ */
+.seller-link {
+  color: #2563eb;
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.seller-link:hover {
+  text-decoration: underline;
+}
+
+.seller-btn {
+  background: #f97316;
+  color: #ffffff;
+  padding: 0.38rem 0.65rem;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ===============================
+   SEARCH (MAIN FOCUS)
+================================ */
+#searchInput {
+  grid-area: search;
+
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f1f5f9;
+  font-size: 0.95rem;
+}
+
+#searchInput:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: #2563eb;
+}
+
+/* ===============================
+   SECTION
+================================ */
+section {
+  padding: 1rem;
+}
+
+section h2 {
+  font-size: 1.05rem;
+  margin-bottom: 0.8rem;
+  color: #2563eb;
+}
+
+/* ===============================
+   PRODUCTS GRID
+================================ */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+/* ===============================
+   PRODUCT CARD
+================================ */
+.product-card {
+  background: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-card img {
+  width: 100%;
+  height: 135px;
+  object-fit: cover;
+}
+
+.product-card h3 {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0.5rem 0.6rem 0.2rem;
+}
+
+.store-name {
+  font-size: 0.72rem;
+  margin: 0 0.6rem;
+  color: #64748b;
+}
+
+.store-name a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.price {
+  margin: 0.35rem 0.6rem;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #f97316;
+}
+
+/* ===============================
+   ORDER BUTTON
+================================ */
+.product-card button {
+  margin: auto 0.6rem 0.6rem;
+  padding: 0.55rem;
+  background: #f97316;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ===============================
+   DESKTOP
+================================ */
+@media (min-width: 768px) {
+  section {
+    padding: 1.8rem;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  .product-card img {
+    height: 170px;
+  }
+}

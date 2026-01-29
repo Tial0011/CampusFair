@@ -1,0 +1,161 @@
+// js/pages/home.js
+
+import { db } from "../core/firebase.js";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+const app = document.getElementById("app");
+
+/* ===============================
+   BASE UI
+================================ */
+
+function renderBaseUI() {
+  app.innerHTML = `
+    <header class="header">
+      <h1>CampusFair</h1>
+
+      <div class="header-actions">
+        <input
+          type="search"
+          id="searchInput"
+          placeholder="Search products on campus..."
+        />
+
+        <a href="/seller-login.html" class="seller-link">
+          Seller Login
+        </a>
+      </div>
+    </header>
+
+    <section>
+      <h2>Discover on Campus</h2>
+      <div id="products" class="products-grid"></div>
+    </section>
+  `;
+}
+
+/* ===============================
+   SHUFFLE (FAIR EXPOSURE)
+================================ */
+
+function shuffleArray(arr) {
+  return arr
+    .map((item) => ({ item, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ item }) => item);
+}
+
+/* ===============================
+   FETCH PRODUCTS
+================================ */
+
+async function fetchProducts() {
+  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+
+  const snapshot = await getDocs(q);
+  const products = [];
+
+  snapshot.forEach((doc) => {
+    products.push({ id: doc.id, ...doc.data() });
+  });
+
+  return products;
+}
+
+/* ===============================
+   RENDER PRODUCTS
+================================ */
+
+function renderProducts(products) {
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+
+  if (products.length === 0) {
+    container.innerHTML = "<p>No products yet.</p>";
+    return;
+  }
+
+  products.forEach((p) => {
+    const card = document.createElement("div");
+    card.className = "product-card";
+
+    const message = encodeURIComponent(
+      `Hi, I want to purchase ${p.name} – ₦${p.price}`,
+    );
+
+    const whatsappLink = `https://wa.me/${p.sellerPhone}?text=${message}`;
+    const storeLink = `/store.html?sellerId=${p.sellerId}`;
+
+    card.innerHTML = `
+      <img src="${p.imageUrl}" alt="${p.name}" />
+
+      <h3>${p.name}</h3>
+
+      <p class="store-name">
+        Sold by 
+        <a href="${storeLink}">
+          ${p.storeName}
+        </a>
+      </p>
+
+      <p class="price">₦${p.price}</p>
+
+      <button>Order on WhatsApp</button>
+    `;
+
+    card.querySelector("button").onclick = () => {
+      window.open(whatsappLink, "_blank");
+    };
+
+    container.appendChild(card);
+  });
+}
+
+/* ===============================
+   SEARCH
+================================ */
+
+function setupSearch(allProducts) {
+  const input = document.getElementById("searchInput");
+
+  input.addEventListener("input", () => {
+    const term = input.value.toLowerCase();
+
+    const filtered = allProducts.filter((p) =>
+      `${p.name} ${p.description}`.toLowerCase().includes(term),
+    );
+
+    renderProducts(filtered);
+  });
+}
+
+/* ===============================
+   INIT
+================================ */
+
+async function init() {
+  renderBaseUI();
+
+  try {
+    const products = await fetchProducts();
+
+    // FAIR EXPOSURE 🔥
+    const shuffled = shuffleArray(products);
+
+    // Optional: limit display (recommended)
+    const displayProducts = shuffled.slice(0, 30);
+
+    renderProducts(displayProducts);
+    setupSearch(products);
+  } catch (err) {
+    console.error(err);
+    app.innerHTML = "<p>Failed to load products.</p>";
+  }
+}
+
+init();
