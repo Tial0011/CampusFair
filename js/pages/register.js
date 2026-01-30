@@ -37,7 +37,7 @@ function renderRegisterUI() {
         <input
           type="tel"
           id="phone"
-          placeholder="WhatsApp Number (e.g. 2348012345678)"
+          placeholder="WhatsApp Number (e.g. +2348012345678)"
           required
         />
 
