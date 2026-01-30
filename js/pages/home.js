@@ -4,6 +4,9 @@ import {
   getDocs,
   query,
   orderBy,
+  where,
+  doc,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -42,16 +45,32 @@ function renderBaseUI() {
 }
 
 /* ===============================
-   FETCH PRODUCTS
+   FETCH PRODUCTS + SELLERS
 ================================ */
 async function fetchProducts() {
   const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
   const snapshot = await getDocs(q);
 
   const products = [];
-  snapshot.forEach((doc) => {
-    products.push({ id: doc.id, ...doc.data() });
-  });
+
+  for (const docSnap of snapshot.docs) {
+    const product = { id: docSnap.id, ...docSnap.data() };
+
+    // fetch seller info using sellerId
+    const sellerRef = doc(db, "sellers", product.sellerId);
+    const sellerSnap = await getDoc(sellerRef);
+
+    if (sellerSnap.exists()) {
+      const seller = sellerSnap.data();
+      product.storeName = seller.storeName;
+      product.sellerPhone = seller.phone;
+    } else {
+      product.storeName = "Unknown Store";
+      product.sellerPhone = "";
+    }
+
+    products.push(product);
+  }
 
   return products;
 }
@@ -76,7 +95,10 @@ function renderProducts(products) {
       `Hi, I want to purchase ${p.name} – ₦${p.price}`,
     );
 
-    const whatsappLink = `https://wa.me/${p.sellerPhone}?text=${message}`;
+    const whatsappLink = p.sellerPhone
+      ? `https://wa.me/${p.sellerPhone}?text=${message}`
+      : "#";
+
     const storeLink = `/store.html?sellerId=${p.sellerId}`;
 
     card.innerHTML = `
@@ -90,12 +112,16 @@ function renderProducts(products) {
 
       <p class="price">₦${p.price}</p>
 
-      <button>Order on WhatsApp</button>
+      <button ${!p.sellerPhone ? "disabled" : ""}>
+        Order on WhatsApp
+      </button>
     `;
 
-    card.querySelector("button").onclick = () => {
-      window.open(whatsappLink, "_blank");
-    };
+    if (p.sellerPhone) {
+      card.querySelector("button").onclick = () => {
+        window.open(whatsappLink, "_blank");
+      };
+    }
 
     container.appendChild(card);
   });

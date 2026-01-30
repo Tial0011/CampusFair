@@ -409,3 +409,28 @@ section h2 {
   height: 100%;
   object-fit: cover;
 }
+/* ===============================
+   STORE BRAND SETTINGS
+================================ */
+.brand-upload {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.brand-upload.dragging {
+  border-color: var(--primary);
+  background: #eff6ff;
+}
+
+.brand-preview {
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+}
