@@ -1,5 +1,3 @@
-// js/pages/seller-register.js
-
 import { auth, db } from "../core/firebase.js";
 
 import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
@@ -7,9 +5,8 @@ import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebase
 import {
   doc,
   setDoc,
-  serverTimestamp,
   getDoc,
-  updateDoc,
+  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -28,27 +25,17 @@ function renderRegisterUI() {
         <input
           type="text"
           id="sellerCode"
-          placeholder="Seller Code (e.g. CF-001)"
+          placeholder="Seller Code (CF-001)"
           required
         />
 
-        <p class="hint">
+        <p style="font-size:0.75rem;color:#64748b;margin-top:-6px">
           To get a seller code, contact <strong>+2347060577255</strong>
         </p>
 
-        <input
-          type="text"
-          id="ownerName"
-          placeholder="Your Full Name"
-          required
-        />
+        <input type="text" id="ownerName" placeholder="Your Full Name" required />
 
-        <input
-          type="text"
-          id="storeName"
-          placeholder="Store Name"
-          required
-        />
+        <input type="text" id="storeName" placeholder="Store Name" required />
 
         <textarea
           id="storeDescription"
@@ -64,19 +51,9 @@ function renderRegisterUI() {
           required
         />
 
-        <input
-          type="email"
-          id="email"
-          placeholder="Email address"
-          required
-        />
+        <input type="email" id="email" placeholder="Email address" required />
 
-        <input
-          type="password"
-          id="password"
-          placeholder="Password"
-          required
-        />
+        <input type="password" id="password" placeholder="Password" required />
 
         <button type="submit">Create Store</button>
       </form>
@@ -118,54 +95,50 @@ function setupRegister() {
     }
 
     try {
-      /* 1️⃣ Get current seller code */
+      /* ===============================
+         VALIDATE SELLER CODE
+      ================================ */
       const codeRef = doc(db, "meta", "sellerCode");
       const codeSnap = await getDoc(codeRef);
 
       if (!codeSnap.exists()) {
-        errorMsg.textContent = "Seller code system not available.";
+        errorMsg.textContent = "Seller code system unavailable.";
         return;
       }
 
-      const { currentCode, currentNumber } = codeSnap.data();
+      const { currentCode } = codeSnap.data();
 
-      /* 2️⃣ Validate seller code */
       if (sellerCode !== currentCode) {
-        errorMsg.textContent = "Invalid or already used seller code.";
+        errorMsg.textContent = "Invalid seller code.";
         return;
       }
 
-      /* 3️⃣ Create auth account */
+      /* ===============================
+         CREATE AUTH ACCOUNT
+      ================================ */
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
       const uid = cred.user.uid;
 
-      /* 4️⃣ Create seller document */
+      /* ===============================
+         CREATE SELLER DOCUMENT
+      ================================ */
       await setDoc(doc(db, "sellers", uid), {
+        sellerCode,
         ownerName,
         storeName,
         storeDescription,
         phone,
         email,
-        sellerCode: currentCode,
         createdAt: serverTimestamp(),
         productCount: 0,
         active: true,
       });
 
-      /* 5️⃣ Increment seller code */
-      const nextNumber = currentNumber + 1;
-      const nextCode = `CF-${String(nextNumber).padStart(3, "0")}`;
-
-      await updateDoc(codeRef, {
-        currentNumber: nextNumber,
-        currentCode: nextCode,
-      });
-
       window.location.href = "/seller/dashboard.html";
     } catch (err) {
       console.error(err);
-      errorMsg.textContent = "Registration failed. Try again.";
+      errorMsg.textContent = err.message;
     }
   });
 }
