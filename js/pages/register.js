@@ -7,6 +7,8 @@ import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebase
 import {
   doc,
   setDoc,
+  getDoc,
+  updateDoc,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
@@ -15,7 +17,6 @@ const app = document.getElementById("app");
 /* ===============================
    RENDER REGISTER UI
 ================================ */
-
 function renderRegisterUI() {
   app.innerHTML = `
     <div class="auth-container">
@@ -23,9 +24,30 @@ function renderRegisterUI() {
       <p>Start selling on CampusFair</p>
 
       <form id="registerForm">
-        <input type="text" id="ownerName" placeholder="Your Full Name" required />
+        <input
+          type="text"
+          id="sellerCode"
+          placeholder="Seller Code (e.g. CF-001)"
+          required
+        />
 
-        <input type="text" id="storeName" placeholder="Store Name" required />
+        <small class="hint">
+          To get a seller code, contact <b>+2347060577255</b>
+        </small>
+
+        <input
+          type="text"
+          id="ownerName"
+          placeholder="Your Full Name"
+          required
+        />
+
+        <input
+          type="text"
+          id="storeName"
+          placeholder="Store Name"
+          required
+        />
 
         <textarea
           id="storeDescription"
@@ -41,11 +63,23 @@ function renderRegisterUI() {
           required
         />
 
-        <input type="email" id="email" placeholder="Email address" required />
+        <input
+          type="email"
+          id="email"
+          placeholder="Email address"
+          required
+        />
 
-        <input type="password" id="password" placeholder="Password" required />
+        <input
+          type="password"
+          id="password"
+          placeholder="Password"
+          required
+        />
 
-        <button type="submit">Create Store</button>
+        <button type="submit">
+          Create Store
+        </button>
       </form>
 
       <p class="auth-footer">
@@ -61,7 +95,6 @@ function renderRegisterUI() {
 /* ===============================
    REGISTER LOGIC
 ================================ */
-
 function setupRegister() {
   const form = document.getElementById("registerForm");
   const errorMsg = document.getElementById("errorMsg");
@@ -69,6 +102,11 @@ function setupRegister() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     errorMsg.textContent = "";
+
+    const sellerCode = document
+      .getElementById("sellerCode")
+      .value.trim()
+      .toUpperCase();
 
     const ownerName = document.getElementById("ownerName").value.trim();
     const storeName = document.getElementById("storeName").value.trim();
@@ -79,19 +117,45 @@ function setupRegister() {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
+    if (!sellerCode.startsWith("CF-")) {
+      errorMsg.textContent = "Invalid seller code format";
+      return;
+    }
+
     if (phone.length < 10) {
       errorMsg.textContent = "Enter a valid WhatsApp number";
       return;
     }
 
     try {
-      // Create auth account
+      /* ===============================
+         VALIDATE SELLER CODE
+      ================================ */
+      const codeRef = doc(db, "sellerCodes", sellerCode);
+      const codeSnap = await getDoc(codeRef);
+
+      if (!codeSnap.exists()) {
+        errorMsg.textContent = "Invalid seller code";
+        return;
+      }
+
+      if (codeSnap.data().used) {
+        errorMsg.textContent = "This seller code has already been used";
+        return;
+      }
+
+      /* ===============================
+         CREATE AUTH ACCOUNT
+      ================================ */
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
       const uid = cred.user.uid;
 
-      // Create seller/store document
+      /* ===============================
+         CREATE SELLER DOCUMENT
+      ================================ */
       await setDoc(doc(db, "sellers", uid), {
+        sellerCode,
         ownerName,
         storeName,
         storeDescription,
@@ -100,6 +164,15 @@ function setupRegister() {
         createdAt: serverTimestamp(),
         productCount: 0,
         active: true,
+      });
+
+      /* ===============================
+         MARK SELLER CODE AS USED
+      ================================ */
+      await updateDoc(codeRef, {
+        used: true,
+        usedAt: serverTimestamp(),
+        sellerId: uid,
       });
 
       window.location.href = "/seller/dashboard.html";
@@ -113,7 +186,6 @@ function setupRegister() {
 /* ===============================
    INIT
 ================================ */
-
 function init() {
   renderRegisterUI();
   setupRegister();
