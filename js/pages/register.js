@@ -7,9 +7,9 @@ import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebase
 import {
   doc,
   setDoc,
+  serverTimestamp,
   getDoc,
   updateDoc,
-  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -24,6 +24,7 @@ function renderRegisterUI() {
       <p>Start selling on CampusFair</p>
 
       <form id="registerForm">
+
         <input
           type="text"
           id="sellerCode"
@@ -31,9 +32,9 @@ function renderRegisterUI() {
           required
         />
 
-        <small class="hint">
-          To get a seller code, contact <b>+2347060577255</b>
-        </small>
+        <p class="hint">
+          To get a seller code, contact <strong>+2347060577255</strong>
+        </p>
 
         <input
           type="text"
@@ -77,9 +78,7 @@ function renderRegisterUI() {
           required
         />
 
-        <button type="submit">
-          Create Store
-        </button>
+        <button type="submit">Create Store</button>
       </form>
 
       <p class="auth-footer">
@@ -103,11 +102,7 @@ function setupRegister() {
     e.preventDefault();
     errorMsg.textContent = "";
 
-    const sellerCode = document
-      .getElementById("sellerCode")
-      .value.trim()
-      .toUpperCase();
-
+    const sellerCode = document.getElementById("sellerCode").value.trim();
     const ownerName = document.getElementById("ownerName").value.trim();
     const storeName = document.getElementById("storeName").value.trim();
     const storeDescription = document
@@ -117,68 +112,60 @@ function setupRegister() {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
-    if (!sellerCode.startsWith("CF-")) {
-      errorMsg.textContent = "Invalid seller code format";
-      return;
-    }
-
     if (phone.length < 10) {
       errorMsg.textContent = "Enter a valid WhatsApp number";
       return;
     }
 
     try {
-      /* ===============================
-         VALIDATE SELLER CODE
-      ================================ */
-      const codeRef = doc(db, "sellerCodes", sellerCode);
+      /* 1️⃣ Get current seller code */
+      const codeRef = doc(db, "meta", "sellerCode");
       const codeSnap = await getDoc(codeRef);
 
       if (!codeSnap.exists()) {
-        errorMsg.textContent = "Invalid seller code";
+        errorMsg.textContent = "Seller code system not available.";
         return;
       }
 
-      if (codeSnap.data().used) {
-        errorMsg.textContent = "This seller code has already been used";
+      const { currentCode, currentNumber } = codeSnap.data();
+
+      /* 2️⃣ Validate seller code */
+      if (sellerCode !== currentCode) {
+        errorMsg.textContent = "Invalid or already used seller code.";
         return;
       }
 
-      /* ===============================
-         CREATE AUTH ACCOUNT
-      ================================ */
+      /* 3️⃣ Create auth account */
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
       const uid = cred.user.uid;
 
-      /* ===============================
-         CREATE SELLER DOCUMENT
-      ================================ */
+      /* 4️⃣ Create seller document */
       await setDoc(doc(db, "sellers", uid), {
-        sellerCode,
         ownerName,
         storeName,
         storeDescription,
         phone,
         email,
+        sellerCode: currentCode,
         createdAt: serverTimestamp(),
         productCount: 0,
         active: true,
       });
 
-      /* ===============================
-         MARK SELLER CODE AS USED
-      ================================ */
+      /* 5️⃣ Increment seller code */
+      const nextNumber = currentNumber + 1;
+      const nextCode = `CF-${String(nextNumber).padStart(3, "0")}`;
+
       await updateDoc(codeRef, {
-        used: true,
-        usedAt: serverTimestamp(),
-        sellerId: uid,
+        currentNumber: nextNumber,
+        currentCode: nextCode,
       });
 
       window.location.href = "/seller/dashboard.html";
     } catch (err) {
       console.error(err);
-      errorMsg.textContent = err.message;
+      errorMsg.textContent = "Registration failed. Try again.";
     }
   });
 }
