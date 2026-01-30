@@ -130,6 +130,7 @@ function renderStoreHeader(seller) {
 ================================ */
 function renderProducts(products, seller) {
   const container = document.getElementById("products");
+  container.innerHTML = "";
 
   if (!products || products.length === 0) {
     container.innerHTML = "<p>No products available yet.</p>";
@@ -147,7 +148,13 @@ function renderProducts(products, seller) {
 
       <p class="price">₦${p.price}</p>
 
-      <button onclick="messageSeller('${seller.phone || ""}')">
+      <button
+        onclick="messageSeller(
+          '${seller.phone || ""}',
+          '${p.name}',
+          '${seller.storeName}'
+        )"
+      >
         Message Seller
       </button>
     `;
@@ -157,14 +164,17 @@ function renderProducts(products, seller) {
 }
 
 /* ===============================
-   MESSAGE SELLER
+   MESSAGE SELLER (WHATSAPP)
 ================================ */
-window.messageSeller = function (phone) {
+window.messageSeller = function (phone, productName, storeName) {
   if (!phone) {
     alert("Seller contact not available");
     return;
   }
 
-  const text = encodeURIComponent("Hello, I’m interested in your product.");
+  const text = encodeURIComponent(
+    `Hello, I’m interested in your ${productName} from ${storeName} on CampusFair.`,
+  );
+
   window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
 };
