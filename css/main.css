@@ -295,3 +295,117 @@ section h2 {
     font-size: 0.82rem;
   }
 }
+/* ===============================
+   IMAGE UPLOAD (DRAG & DROP)
+================================ */
+.image-drop {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 1.2rem;
+  text-align: center;
+  background: #f8fafc;
+  cursor: pointer;
+  transition:
+    border 0.2s ease,
+    background 0.2s ease;
+}
+
+.image-drop.drag {
+  border-color: var(--primary);
+  background: #eef2ff;
+}
+
+.image-drop p {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.image-preview {
+  margin-top: 0.8rem;
+}
+
+.image-preview img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+/* ===============================
+   DASHBOARD ACTIONS
+================================ */
+.dashboard-actions {
+  display: flex;
+  flex-direction: column; /* 👈 THIS IS THE FIX */
+  gap: 0.4rem;
+  margin: 0.6rem;
+}
+
+/* shared */
+.dashboard-actions a,
+.dashboard-actions button {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.1;
+}
+
+/* EDIT */
+.dashboard-actions a {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+/* DELETE */
+.dashboard-actions button {
+  background: #ffffff;
+  color: var(--danger);
+  margin: 0;
+  border: 1px solid var(--danger);
+}
+
+/* hover (clean + subtle) */
+.dashboard-actions button:hover {
+  background: #fee2e2;
+}
+/* ===============================
+   STORE BRANDING
+================================ */
+.store-banner {
+  width: 100%;
+  height: 140px;
+  border-radius: 14px;
+  background: var(--border);
+  overflow: hidden;
+  margin-bottom: 0.8rem;
+}
+
+.store-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.store-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.store-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.store-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

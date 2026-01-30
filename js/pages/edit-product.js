@@ -1,37 +1,71 @@
-// js/pages/add-product.js
+// js/pages/edit-product.js
 
 import { auth, db } from "../core/firebase.js";
 import {
-  addDoc,
-  collection,
-  serverTimestamp,
+  doc,
+  getDoc,
+  updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
+const params = new URLSearchParams(window.location.search);
+const productId = params.get("id");
 
 const CLOUD_NAME = "duh3wgggt";
 const UPLOAD_PRESET = "campusfair_products";
+
+let imageUrl = "";
+let newImageSelected = false;
 
 /* ===============================
    AUTH CHECK
 ================================ */
 auth.onAuthStateChanged((user) => {
-  if (!user) {
-    window.location.href = "/seller/login.html";
+  if (!user || !productId) {
+    window.location.href = "/seller/dashboard.html";
     return;
   }
-  renderUI(user);
+  loadProduct(user);
 });
+
+/* ===============================
+   LOAD PRODUCT
+================================ */
+async function loadProduct(user) {
+  try {
+    const refDoc = doc(db, "products", productId);
+    const snap = await getDoc(refDoc);
+
+    if (!snap.exists()) {
+      window.location.href = "/seller/dashboard.html";
+      return;
+    }
+
+    const product = snap.data();
+
+    if (product.sellerId !== user.uid) {
+      window.location.href = "/seller/dashboard.html";
+      return;
+    }
+
+    imageUrl = product.imageUrl;
+    renderUI(product);
+  } catch (err) {
+    console.error(err);
+    app.innerHTML = "<p>Failed to load product</p>";
+  }
+}
 
 /* ===============================
    UI
 ================================ */
-function renderUI(user) {
+function renderUI(product) {
   app.innerHTML = `
     <header class="header">
       <div class="header-left">
-        <h1>Add Product</h1>
+        <h1>Edit Product</h1>
       </div>
+
       <div class="header-right">
         <a href="/seller/dashboard.html" class="seller-link">
           Back to Dashboard
@@ -41,40 +75,40 @@ function renderUI(user) {
 
     <section>
       <form id="productForm" class="auth-container">
-        <input type="text" id="name" placeholder="Product name" required />
-        <input type="number" id="price" placeholder="Price (₦)" required />
+
+        <input type="text" id="name" value="${product.name}" required />
+        <input type="number" id="price" value="${product.price}" required />
 
         <div id="dropZone" class="image-drop">
-          <p>Drag & drop product image<br/>or click to select</p>
+          <p>Drag & drop new image<br/>or click to replace</p>
           <input type="file" id="fileInput" accept="image/*" hidden />
-          <div class="image-preview" id="preview"></div>
+          <div class="image-preview">
+            <img src="${product.imageUrl}" />
+          </div>
         </div>
 
         <textarea
           id="description"
           rows="4"
-          placeholder="Product description"
           style="padding:0.75rem;border-radius:10px;border:1px solid var(--border);"
-        ></textarea>
+        >${product.description || ""}</textarea>
 
-        <button>Add Product</button>
+        <button>Save Changes</button>
       </form>
     </section>
   `;
 
   initImageUpload();
-  document.getElementById("productForm").onsubmit = (e) =>
-    submitProduct(e, user);
+  document.getElementById("productForm").onsubmit = submitChanges;
 }
 
-let imageUrl = "";
-
 /* ===============================
-   IMAGE UPLOAD
+   IMAGE UPLOAD (CLOUDINARY)
 ================================ */
 function initImageUpload() {
   const drop = document.getElementById("dropZone");
   const input = document.getElementById("fileInput");
+  const preview = drop.querySelector(".image-preview");
 
   drop.onclick = () => input.click();
 
@@ -88,17 +122,20 @@ function initImageUpload() {
   drop.ondrop = (e) => {
     e.preventDefault();
     drop.classList.remove("drag");
-    handleFile(e.dataTransfer.files[0]);
+    uploadFile(e.dataTransfer.files[0], preview);
   };
 
-  input.onchange = () => handleFile(input.files[0]);
+  input.onchange = () => uploadFile(input.files[0], preview);
 }
 
-async function handleFile(file) {
-  if (!file) return;
+async function uploadFile(file, preview) {
+  if (!file || !file.type.startsWith("image/")) {
+    alert("Please upload an image");
+    return;
+  }
 
-  const preview = document.getElementById("preview");
   preview.innerHTML = `<p>Uploading...</p>`;
+  newImageSelected = true;
 
   const formData = new FormData();
   formData.append("file", file);
@@ -124,30 +161,23 @@ async function handleFile(file) {
 }
 
 /* ===============================
-   SUBMIT
+   UPDATE
 ================================ */
-async function submitProduct(e, user) {
+async function submitChanges(e) {
   e.preventDefault();
 
-  if (!imageUrl) {
-    alert("Please upload an image");
-    return;
-  }
-
-  const product = {
-    name: document.getElementById("name").value.trim(),
-    price: Number(document.getElementById("price").value),
-    imageUrl,
-    description: document.getElementById("description").value.trim(),
-    sellerId: user.uid,
-    createdAt: serverTimestamp(),
-  };
-
   try {
-    await addDoc(collection(db, "products"), product);
+    const updated = {
+      name: document.getElementById("name").value.trim(),
+      price: Number(document.getElementById("price").value),
+      description: document.getElementById("description").value.trim(),
+      imageUrl,
+    };
+
+    await updateDoc(doc(db, "products", productId), updated);
     window.location.href = "/seller/dashboard.html";
   } catch (err) {
-    alert("Failed to add product");
+    alert("Failed to update product");
     console.error(err);
   }
 }

@@ -6,6 +6,8 @@ import {
   getDocs,
   query,
   where,
+  deleteDoc,
+  doc,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -13,37 +15,55 @@ const app = document.getElementById("app");
 /* ===============================
    AUTH CHECK
 ================================ */
-
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    window.location.href = "/seller-login.html";
+    window.location.href = "/login.html";
     return;
   }
 
-  initDashboard(user.uid);
+  initDashboard(user);
 });
 
 /* ===============================
    BASE UI
 ================================ */
-
-function renderBaseUI(sellerId) {
+function renderBaseUI(user) {
   app.innerHTML = `
     <header class="header">
-      <h1>Seller Dashboard</h1>
+      <div class="header-left">
+        <h1>Seller Dashboard</h1>
+      </div>
 
-      <div class="header-actions">
+      <div class="header-right">
         <a
-          href="/store.html?sellerId=${sellerId}"
-          class="view-store-btn"
+          href="/store.html?sellerId=${user.uid}"
+          class="seller-link"
           target="_blank"
         >
-          View My Store
+          View Store
         </a>
 
-        <button id="logoutBtn">Logout</button>
+        <button id="logoutBtn" class="seller-btn">
+          Logout
+        </button>
       </div>
     </header>
+
+    <section>
+      <p class="seller-welcome">
+        Welcome back 👋🏽 Manage your products below.
+      </p>
+    </section>
+
+    <section>
+      <a
+        href="/seller/add-product.html"
+        class="seller-btn"
+        style="display:inline-block;"
+      >
+        + Add New Product
+      </a>
+    </section>
 
     <section>
       <h2>My Products</h2>
@@ -59,7 +79,6 @@ function renderBaseUI(sellerId) {
 /* ===============================
    FETCH SELLER PRODUCTS
 ================================ */
-
 async function fetchSellerProducts(sellerId) {
   const q = query(
     collection(db, "products"),
@@ -69,8 +88,8 @@ async function fetchSellerProducts(sellerId) {
   const snapshot = await getDocs(q);
   const products = [];
 
-  snapshot.forEach((doc) => {
-    products.push({ id: doc.id, ...doc.data() });
+  snapshot.forEach((docSnap) => {
+    products.push({ id: docSnap.id, ...docSnap.data() });
   });
 
   return products;
@@ -79,13 +98,12 @@ async function fetchSellerProducts(sellerId) {
 /* ===============================
    RENDER PRODUCTS
 ================================ */
-
-function renderProducts(products, sellerId) {
+function renderProducts(products) {
   const container = document.getElementById("products");
   container.innerHTML = "";
 
   if (products.length === 0) {
-    container.innerHTML = "<p>No products yet.</p>";
+    container.innerHTML = "<p>You haven’t added any products yet.</p>";
     return;
   }
 
@@ -101,30 +119,61 @@ function renderProducts(products, sellerId) {
       <p class="price">₦${p.price}</p>
 
       <div class="dashboard-actions">
-        <a
-          href="/store.html?sellerId=${sellerId}"
-          target="_blank"
-          class="view-store-link"
-        >
-          View Store
+        <a href="/edit-product.html?id=${p.id}">
+          Edit
         </a>
+
+        <button
+          class="delete-btn"
+          data-id="${p.id}"
+        >
+          Delete
+        </button>
       </div>
     `;
 
     container.appendChild(card);
+  });
+
+  setupDeleteButtons();
+}
+
+/* ===============================
+   DELETE PRODUCT
+================================ */
+function setupDeleteButtons() {
+  const buttons = document.querySelectorAll(".delete-btn");
+
+  buttons.forEach((btn) => {
+    btn.onclick = async () => {
+      const productId = btn.dataset.id;
+
+      const confirmDelete = confirm(
+        "Are you sure you want to delete this product?",
+      );
+
+      if (!confirmDelete) return;
+
+      try {
+        await deleteDoc(doc(db, "products", productId));
+        btn.closest(".product-card").remove();
+      } catch (err) {
+        alert("Failed to delete product");
+        console.error(err);
+      }
+    };
   });
 }
 
 /* ===============================
    INIT
 ================================ */
-
-async function initDashboard(sellerId) {
-  renderBaseUI(sellerId);
+async function initDashboard(user) {
+  renderBaseUI(user);
 
   try {
-    const products = await fetchSellerProducts(sellerId);
-    renderProducts(products, sellerId);
+    const products = await fetchSellerProducts(user.uid);
+    renderProducts(products);
   } catch (err) {
     console.error(err);
     app.innerHTML = "<p>Failed to load dashboard.</p>";

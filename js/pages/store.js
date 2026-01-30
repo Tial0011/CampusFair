@@ -1,61 +1,66 @@
-// js/pages/home.js
+// js/pages/store.js
 
 import { db } from "../core/firebase.js";
 import {
+  doc,
+  getDoc,
   collection,
   getDocs,
   query,
-  orderBy,
+  where,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
+const params = new URLSearchParams(window.location.search);
+const sellerId = params.get("sellerId");
 
 /* ===============================
-   BASE UI
+   INIT
 ================================ */
-
-function renderBaseUI() {
-  app.innerHTML = `
-    <header class="header">
-      <h1>CampusFair</h1>
-
-      <div class="header-actions">
-        <input
-          type="search"
-          id="searchInput"
-          placeholder="Search products on campus..."
-        />
-
-        <a href="/seller-login.html" class="seller-link">
-          Seller Login
-        </a>
-      </div>
-    </header>
-
-    <section>
-      <h2>Discover on Campus</h2>
-      <div id="products" class="products-grid"></div>
-    </section>
-  `;
+if (!sellerId) {
+  app.innerHTML = "<p>Store not found.</p>";
+} else {
+  loadStore();
 }
 
 /* ===============================
-   SHUFFLE (FAIR EXPOSURE)
+   LOAD STORE
 ================================ */
+async function loadStore() {
+  try {
+    const seller = await fetchSeller();
+    renderStoreHeader(seller);
 
-function shuffleArray(arr) {
-  return arr
-    .map((item) => ({ item, sort: Math.random() }))
-    .sort((a, b) => a.sort - b.sort)
-    .map(({ item }) => item);
+    const products = await fetchSellerProducts();
+    renderProducts(products, seller);
+  } catch (err) {
+    console.error(err);
+    app.innerHTML = "<p>Failed to load store.</p>";
+  }
+}
+
+/* ===============================
+   FETCH SELLER
+================================ */
+async function fetchSeller() {
+  const ref = doc(db, "sellers", sellerId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) {
+    throw new Error("Seller not found");
+  }
+
+  return snap.data();
 }
 
 /* ===============================
    FETCH PRODUCTS
 ================================ */
-
-async function fetchProducts() {
-  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+async function fetchSellerProducts() {
+  const q = query(
+    collection(db, "products"),
+    where("sellerId", "==", sellerId),
+  );
 
   const snapshot = await getDocs(q);
   const products = [];
@@ -68,15 +73,66 @@ async function fetchProducts() {
 }
 
 /* ===============================
+   HEADER + STORE INFO
+================================ */
+function renderStoreHeader(seller) {
+  app.innerHTML = `
+    <header class="header">
+      <div class="header-left">
+        <h1>${seller.storeName}</h1>
+      </div>
+
+      <div class="header-right">
+        <a href="/" class="seller-link">Back to CampusFair</a>
+      </div>
+    </header>
+
+    <section>
+      ${
+        seller.bannerUrl
+          ? `
+        <div class="store-banner">
+          <img src="${seller.bannerUrl}" alt="${seller.storeName}" />
+        </div>
+        `
+          : ""
+      }
+
+      <div class="store-header">
+        ${
+          seller.logoUrl
+            ? `
+          <div class="store-logo">
+            <img src="${seller.logoUrl}" alt="Store logo" />
+          </div>
+          `
+            : ""
+        }
+
+        <div>
+          <p class="store-name">${seller.storeName}</p>
+          <p style="font-size:0.8rem;color:var(--muted);">
+            ${seller.storeDescription || "Welcome to my store 👋🏽"}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Products</h2>
+      <div id="products" class="products-grid"></div>
+    </section>
+  `;
+}
+
+/* ===============================
    RENDER PRODUCTS
 ================================ */
-
-function renderProducts(products) {
+function renderProducts(products, seller) {
   const container = document.getElementById("products");
-  container.innerHTML = "";
 
-  if (products.length === 0) {
-    container.innerHTML = "<p>No products yet.</p>";
+  if (!products || products.length === 0) {
+    container.innerHTML = "<p>No products available yet.</p>";
     return;
   }
 
@@ -84,78 +140,31 @@ function renderProducts(products) {
     const card = document.createElement("div");
     card.className = "product-card";
 
-    const message = encodeURIComponent(
-      `Hi, I want to purchase ${p.name} – ₦${p.price}`,
-    );
-
-    const whatsappLink = `https://wa.me/${p.sellerPhone}?text=${message}`;
-    const storeLink = `/store.html?sellerId=${p.sellerId}`;
-
     card.innerHTML = `
       <img src="${p.imageUrl}" alt="${p.name}" />
 
       <h3>${p.name}</h3>
 
-      <p class="store-name">
-        Sold by 
-        <a href="${storeLink}">
-          ${p.storeName}
-        </a>
-      </p>
-
       <p class="price">₦${p.price}</p>
 
-      <button>Order on WhatsApp</button>
+      <button onclick="messageSeller('${seller.phone || ""}')">
+        Message Seller
+      </button>
     `;
-
-    card.querySelector("button").onclick = () => {
-      window.open(whatsappLink, "_blank");
-    };
 
     container.appendChild(card);
   });
 }
 
 /* ===============================
-   SEARCH
+   MESSAGE SELLER
 ================================ */
-
-function setupSearch(allProducts) {
-  const input = document.getElementById("searchInput");
-
-  input.addEventListener("input", () => {
-    const term = input.value.toLowerCase();
-
-    const filtered = allProducts.filter((p) =>
-      `${p.name} ${p.description}`.toLowerCase().includes(term),
-    );
-
-    renderProducts(filtered);
-  });
-}
-
-/* ===============================
-   INIT
-================================ */
-
-async function init() {
-  renderBaseUI();
-
-  try {
-    const products = await fetchProducts();
-
-    // FAIR EXPOSURE 🔥
-    const shuffled = shuffleArray(products);
-
-    // Optional: limit display (recommended)
-    const displayProducts = shuffled.slice(0, 30);
-
-    renderProducts(displayProducts);
-    setupSearch(products);
-  } catch (err) {
-    console.error(err);
-    app.innerHTML = "<p>Failed to load products.</p>";
+window.messageSeller = function (phone) {
+  if (!phone) {
+    alert("Seller contact not available");
+    return;
   }
-}
 
-init();
+  const text = encodeURIComponent("Hello, I’m interested in your product.");
+  window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+};
