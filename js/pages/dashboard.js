@@ -17,7 +17,7 @@ const app = document.getElementById("app");
 ================================ */
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    window.location.href = "/login.html";
+    window.location.href = "/seller/login.html";
     return;
   }
 
@@ -119,7 +119,7 @@ function renderProducts(products) {
       <p class="price">₦${p.price}</p>
 
       <div class="dashboard-actions">
-        <a href="/edit-product.html?id=${p.id}">
+        <a href="/seller/edit-product.html?id=${p.id}">
           Edit
         </a>
 
