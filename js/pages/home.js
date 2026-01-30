@@ -92,7 +92,7 @@ function renderProducts(products) {
     card.className = "product-card";
 
     const message = encodeURIComponent(
-      `Hi, I want to purchase ${p.name} – ₦${p.price}`,
+      `Hi ${p.storeName}, I want to purchase ${p.name} – ₦${p.price}`,
     );
 
     const whatsappLink = p.sellerPhone
