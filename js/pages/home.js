@@ -1,10 +1,11 @@
+// js/pages/home.js (or whatever this file is)
+
 import { db } from "../core/firebase.js";
 import {
   collection,
   getDocs,
   query,
   orderBy,
-  where,
   doc,
   getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
@@ -39,7 +40,14 @@ function renderBaseUI() {
 
     <section>
       <h2>Latest Products</h2>
-      <div id="products" class="products-grid"></div>
+
+      <!-- LOADING STATE -->
+      <div id="products" class="products-grid">
+        <div class="loading">
+          <div class="spinner"></div>
+          <span>Loading products...</span>
+        </div>
+      </div>
     </section>
   `;
 }
@@ -56,7 +64,6 @@ async function fetchProducts() {
   for (const docSnap of snapshot.docs) {
     const product = { id: docSnap.id, ...docSnap.data() };
 
-    // fetch seller info using sellerId
     const sellerRef = doc(db, "sellers", product.sellerId);
     const sellerSnap = await getDoc(sellerRef);
 
@@ -92,7 +99,7 @@ function renderProducts(products) {
     card.className = "product-card";
 
     const message = encodeURIComponent(
-      `Hi, I’m interested in "${p.name}" (₦${p.price}) from ${p.storeName} on CampusFair.`,
+      `Hello, I’m interested in your ${p.name} from ${p.storeName} on CampusFair.`,
     );
 
     const whatsappLink = p.sellerPhone
@@ -148,10 +155,13 @@ function setupSearch(allProducts) {
    INIT
 ================================ */
 async function init() {
+  // 🔥 SHOW UI + SPINNER FIRST
   renderBaseUI();
 
   try {
     const products = await fetchProducts();
+
+    // 🔥 REPLACE SPINNER WITH PRODUCTS
     renderProducts(products);
     setupSearch(products);
   } catch (err) {

@@ -21,8 +21,26 @@ auth.onAuthStateChanged((user) => {
     return;
   }
 
+  // 🔥 render loading immediately
+  renderLoadingUI();
+
   initDashboard(user);
 });
+
+/* ===============================
+   LOADING UI
+================================ */
+function renderLoadingUI() {
+  app.innerHTML = `
+    <header class="header">
+      <h1>Seller Dashboard</h1>
+    </header>
+
+    <div class="loading">
+      Loading your products...
+    </div>
+  `;
+}
 
 /* ===============================
    BASE UI
@@ -67,7 +85,11 @@ function renderBaseUI(user) {
 
     <section>
       <h2>My Products</h2>
-      <div id="products" class="products-grid"></div>
+
+      <!-- loading placeholder -->
+      <div id="products">
+        <p class="loading">Fetching products...</p>
+      </div>
     </section>
   `;
 
@@ -106,6 +128,8 @@ function renderProducts(products) {
     container.innerHTML = "<p>You haven’t added any products yet.</p>";
     return;
   }
+
+  container.className = "products-grid";
 
   products.forEach((p) => {
     const card = document.createElement("div");
@@ -148,11 +172,18 @@ function setupDeleteButtons() {
     btn.onclick = async () => {
       const productId = btn.dataset.id;
 
+      btn.disabled = true;
+      btn.textContent = "Deleting...";
+
       const confirmDelete = confirm(
         "Are you sure you want to delete this product?",
       );
 
-      if (!confirmDelete) return;
+      if (!confirmDelete) {
+        btn.disabled = false;
+        btn.textContent = "Delete";
+        return;
+      }
 
       try {
         await deleteDoc(doc(db, "products", productId));
@@ -160,6 +191,8 @@ function setupDeleteButtons() {
       } catch (err) {
         alert("Failed to delete product");
         console.error(err);
+        btn.disabled = false;
+        btn.textContent = "Delete";
       }
     };
   });
@@ -169,6 +202,7 @@ function setupDeleteButtons() {
    INIT
 ================================ */
 async function initDashboard(user) {
+  // render main UI (still shows loading text inside)
   renderBaseUI(user);
 
   try {
