@@ -16,9 +16,9 @@ const app = document.getElementById("app");
 /* ===============================
    AUTH GUARD
 ================================ */
-auth.onAuthStateChanged((user) => {
+auth.onAuthStateChanged(async (user) => {
   if (!user) {
-    // 🔒 HARD redirect (prevents back-button issue)
+    // hard redirect → buyer page
     window.location.replace("/");
     return;
   }
@@ -45,9 +45,7 @@ function renderLoadingUI() {
 /* ===============================
    BASE UI
 ================================ */
-function renderBaseUI(user, seller) {
-  const storeLink = `https://campusfair.netlify.app/s/${seller.storeSlug}`;
-
+function renderBaseUI(user, storeLink) {
   app.innerHTML = `
     <header class="header">
       <div class="header-left">
@@ -55,11 +53,7 @@ function renderBaseUI(user, seller) {
       </div>
 
       <div class="header-right">
-        <a
-          href="${storeLink}"
-          class="seller-link"
-          target="_blank"
-        >
+        <a href="${storeLink}" class="seller-link" target="_blank">
           View Store
         </a>
 
@@ -69,21 +63,20 @@ function renderBaseUI(user, seller) {
       </div>
     </header>
 
-    <section class="seller-store-link">
-      <p><strong>Your store link</strong></p>
+    <section class="store-share">
+      <p><strong>Your store link:</strong></p>
 
-      <div class="store-link-box">
+      <div class="copy-box">
         <input
           type="text"
           id="storeLinkInput"
           value="${storeLink}"
           readonly
         />
-
-        <button id="copyLinkBtn" class="seller-btn small">
-          Copy Link
-        </button>
+        <button id="copyStoreLink">Copy</button>
       </div>
+
+      <small>Share this link to promote your store 🚀</small>
     </section>
 
     <section>
@@ -110,43 +103,41 @@ function renderBaseUI(user, seller) {
     </section>
   `;
 
-  /* LOGOUT */
+  // logout
   document.getElementById("logoutBtn").onclick = async () => {
     await auth.signOut();
     window.location.replace("/");
   };
 
-  /* COPY LINK */
-  const copyBtn = document.getElementById("copyLinkBtn");
-  const input = document.getElementById("storeLinkInput");
+  // copy store link
+  document.getElementById("copyStoreLink").onclick = () => {
+    const input = document.getElementById("storeLinkInput");
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value);
 
-  copyBtn.onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(input.value);
-      copyBtn.textContent = "Copied!";
-      setTimeout(() => (copyBtn.textContent = "Copy Link"), 1500);
-    } catch (err) {
-      alert("Failed to copy link");
-    }
+    const btn = document.getElementById("copyStoreLink");
+    btn.textContent = "Copied ✓";
+    setTimeout(() => (btn.textContent = "Copy"), 1500);
   };
 }
 
 /* ===============================
-   FETCH SELLER DATA
+   FETCH SELLER INFO
 ================================ */
 async function fetchSeller(uid) {
   const ref = doc(db, "sellers", uid);
   const snap = await getDoc(ref);
 
   if (!snap.exists()) {
-    throw new Error("Seller not found");
+    throw new Error("Seller record not found");
   }
 
   return snap.data();
 }
 
 /* ===============================
-   FETCH SELLER PRODUCTS
+   FETCH PRODUCTS
 ================================ */
 async function fetchSellerProducts(sellerId) {
   const q = query(
@@ -226,6 +217,7 @@ function setupDeleteButtons() {
         btn.closest(".product-card").remove();
       } catch (err) {
         alert("Failed to delete product");
+        console.error(err);
         btn.disabled = false;
         btn.textContent = "Delete";
       }
@@ -234,12 +226,18 @@ function setupDeleteButtons() {
 }
 
 /* ===============================
-   INIT
+   INIT DASHBOARD
 ================================ */
 async function initDashboard(user) {
   try {
     const seller = await fetchSeller(user.uid);
-    renderBaseUI(user, seller);
+
+    // build clean public link
+    const storeLink = seller.storeSlug
+      ? `https://campusfair.netlify.app/s/${seller.storeSlug}`
+      : `https://campusfair.netlify.app/store.html?sellerId=${user.uid}`;
+
+    renderBaseUI(user, storeLink);
 
     const products = await fetchSellerProducts(user.uid);
     renderProducts(products);
