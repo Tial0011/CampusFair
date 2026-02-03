@@ -30,19 +30,14 @@ if (!sellerId) {
    LOAD STORE
 ================================ */
 async function loadStore() {
-  try {
-    const seller = await fetchSeller();
-    SELLER = seller;
+  const seller = await fetchSeller();
+  SELLER = seller;
 
-    renderStoreHeader(seller);
+  renderStoreHeader(seller);
 
-    const products = await fetchSellerProducts();
-    renderProducts(products);
-    renderCartUI();
-  } catch (err) {
-    console.error(err);
-    app.innerHTML = "<p>Failed to load store.</p>";
-  }
+  const products = await fetchSellerProducts();
+  renderProducts(products);
+  renderCartUI();
 }
 
 /* ===============================
@@ -51,7 +46,6 @@ async function loadStore() {
 async function fetchSeller() {
   const ref = doc(db, "sellers", sellerId);
   const snap = await getDoc(ref);
-
   if (!snap.exists()) throw new Error("Seller not found");
   return snap.data();
 }
@@ -66,13 +60,7 @@ async function fetchSellerProducts() {
   );
 
   const snapshot = await getDocs(q);
-  const products = [];
-
-  snapshot.forEach((doc) => {
-    products.push({ id: doc.id, ...doc.data() });
-  });
-
-  return products;
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 /* ===============================
@@ -94,28 +82,10 @@ function renderStoreHeader(seller) {
     </header>
 
     <section>
-      ${
-        seller.bannerUrl
-          ? `<div class="store-banner">
-               <img src="${seller.bannerUrl}" />
-             </div>`
-          : ""
-      }
-
       <div class="store-header">
-        ${
-          seller.logoUrl
-            ? `<div class="store-logo">
-                 <img src="${seller.logoUrl}" />
-               </div>`
-            : ""
-        }
-
         <div>
           <p class="store-name">${seller.storeName}</p>
-          <p class="store-desc">
-            ${seller.storeDescription || "Welcome to my store 👋🏽"}
-          </p>
+          <p class="store-desc">${seller.storeDescription || ""}</p>
         </div>
       </div>
     </section>
@@ -133,11 +103,6 @@ function renderStoreHeader(seller) {
 function renderProducts(products) {
   const container = document.getElementById("products");
 
-  if (!products.length) {
-    container.innerHTML = "<p>No products yet.</p>";
-    return;
-  }
-
   products.forEach((p) => {
     const card = document.createElement("div");
     card.className = "product-card";
@@ -146,10 +111,10 @@ function renderProducts(products) {
       <img src="${p.imageUrl}" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
-      <button class="add-btn">Add to Cart</button>
+      <button>Add to Cart</button>
     `;
 
-    card.querySelector(".add-btn").onclick = () => addToCart(p);
+    card.querySelector("button").onclick = () => addToCart(p);
     container.appendChild(card);
   });
 }
@@ -158,12 +123,30 @@ function renderProducts(products) {
    CART LOGIC
 ================================ */
 function addToCart(product) {
-  const exists = CART.find((p) => p.id === product.id);
+  const item = CART.find((p) => p.id === product.id);
 
-  if (exists) {
-    exists.qty += 1;
+  if (item) {
+    item.qty += 1;
   } else {
     CART.push({ ...product, qty: 1 });
+  }
+
+  updateCartUI();
+}
+
+function increaseQty(id) {
+  const item = CART.find((p) => p.id === id);
+  item.qty += 1;
+  updateCartUI();
+}
+
+function decreaseQty(id) {
+  const item = CART.find((p) => p.id === id);
+
+  item.qty -= 1;
+
+  if (item.qty <= 0) {
+    CART = CART.filter((p) => p.id !== id);
   }
 
   updateCartUI();
@@ -179,25 +162,35 @@ function updateCartUI() {
   list.innerHTML = "";
 
   CART.forEach((p) => {
-    const item = document.createElement("div");
-    item.className = "cart-item";
+    const row = document.createElement("div");
+    row.className = "cart-item";
 
-    item.innerHTML = `
-      <span>${p.name} × ${p.qty}</span>
-      <strong>₦${p.price * p.qty}</strong>
+    row.innerHTML = `
+      <span>${p.name}</span>
+
+      <div class="cart-controls">
+        <button onclick="window.decreaseQty('${p.id}')">−</button>
+        <strong>${p.qty}</strong>
+        <button onclick="window.increaseQty('${p.id}')">+</button>
+      </div>
+
+      <span>₦${p.price * p.qty}</span>
     `;
 
-    list.appendChild(item);
+    list.appendChild(row);
   });
 }
 
+/* expose qty handlers */
+window.increaseQty = increaseQty;
+window.decreaseQty = decreaseQty;
+
 /* ===============================
-   CART UI (SLIDE UP)
+   CART UI
 ================================ */
 function renderCartUI() {
   const cart = document.createElement("div");
   cart.id = "cartPanel";
-  cart.className = "cart-panel";
 
   cart.innerHTML = `
     <div class="cart-header">
@@ -216,6 +209,7 @@ function renderCartUI() {
 
   document.getElementById("openCart").onclick = () =>
     cart.classList.add("show");
+
   document.getElementById("closeCart").onclick = () =>
     cart.classList.remove("show");
 
@@ -226,26 +220,18 @@ function renderCartUI() {
    CHECKOUT
 ================================ */
 function checkout() {
-  if (!CART.length) {
-    alert("Your cart is empty");
-    return;
-  }
+  if (!CART.length) return alert("Cart is empty");
 
-  if (!SELLER.phone) {
-    alert("Seller contact unavailable");
-    return;
-  }
-
-  let message = `Hello, I’d like to order:\n\n`;
+  let msg = "Hello, I’d like to order:\n\n";
 
   CART.forEach((p) => {
-    message += `• ${p.name} × ${p.qty} = ₦${p.price * p.qty}\n`;
+    msg += `• ${p.name} × ${p.qty} = ₦${p.price * p.qty}\n`;
   });
 
-  message += `\nFrom ${SELLER.storeName} on CampusFair`;
+  msg += `\nFrom ${SELLER.storeName} on CampusFair`;
 
   window.open(
-    `https://wa.me/${SELLER.phone}?text=${encodeURIComponent(message)}`,
+    `https://wa.me/${SELLER.phone}?text=${encodeURIComponent(msg)}`,
     "_blank",
   );
 }
