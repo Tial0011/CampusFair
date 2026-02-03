@@ -18,13 +18,20 @@ let imageUrl = "";
 let newImageSelected = false;
 
 /* ===============================
-   AUTH CHECK
+   AUTH GUARD
 ================================ */
 auth.onAuthStateChanged((user) => {
-  if (!user || !productId) {
-    window.location.href = "/seller/dashboard.html";
+  if (!user) {
+    // 🔒 hard redirect to public home
+    window.location.replace("/");
     return;
   }
+
+  if (!productId) {
+    window.location.replace("/seller/dashboard.html");
+    return;
+  }
+
   loadProduct(user);
 });
 
@@ -37,14 +44,15 @@ async function loadProduct(user) {
     const snap = await getDoc(refDoc);
 
     if (!snap.exists()) {
-      window.location.href = "/seller/dashboard.html";
+      window.location.replace("/seller/dashboard.html");
       return;
     }
 
     const product = snap.data();
 
+    // 🔒 ownership check
     if (product.sellerId !== user.uid) {
-      window.location.href = "/seller/dashboard.html";
+      window.location.replace("/seller/dashboard.html");
       return;
     }
 
@@ -175,7 +183,7 @@ async function submitChanges(e) {
     };
 
     await updateDoc(doc(db, "products", productId), updated);
-    window.location.href = "/seller/dashboard.html";
+    window.location.replace("/seller/dashboard.html");
   } catch (err) {
     alert("Failed to update product");
     console.error(err);

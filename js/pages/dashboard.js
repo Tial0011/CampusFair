@@ -13,15 +13,16 @@ import {
 const app = document.getElementById("app");
 
 /* ===============================
-   AUTH CHECK
+   AUTH GUARD
 ================================ */
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    window.location.href = "/seller/login.html";
+    // 🔒 HARD redirect (removes dashboard from history)
+    window.location.replace("/");
     return;
   }
 
-  // 🔥 render loading immediately
+  // show loading immediately
   renderLoadingUI();
 
   initDashboard(user);
@@ -85,16 +86,16 @@ function renderBaseUI(user) {
 
     <section>
       <h2>My Products</h2>
-
-      <!-- loading placeholder -->
       <div id="products">
         <p class="loading">Fetching products...</p>
       </div>
     </section>
   `;
 
-  document.getElementById("logoutBtn").onclick = () => {
-    auth.signOut();
+  // 🔒 SAFE logout
+  document.getElementById("logoutBtn").onclick = async () => {
+    await auth.signOut();
+    window.location.replace("/");
   };
 }
 
@@ -147,10 +148,7 @@ function renderProducts(products) {
           Edit
         </a>
 
-        <button
-          class="delete-btn"
-          data-id="${p.id}"
-        >
+        <button class="delete-btn" data-id="${p.id}">
           Delete
         </button>
       </div>
@@ -172,18 +170,14 @@ function setupDeleteButtons() {
     btn.onclick = async () => {
       const productId = btn.dataset.id;
 
-      btn.disabled = true;
-      btn.textContent = "Deleting...";
-
       const confirmDelete = confirm(
         "Are you sure you want to delete this product?",
       );
 
-      if (!confirmDelete) {
-        btn.disabled = false;
-        btn.textContent = "Delete";
-        return;
-      }
+      if (!confirmDelete) return;
+
+      btn.disabled = true;
+      btn.textContent = "Deleting...";
 
       try {
         await deleteDoc(doc(db, "products", productId));
@@ -202,7 +196,6 @@ function setupDeleteButtons() {
    INIT
 ================================ */
 async function initDashboard(user) {
-  // render main UI (still shows loading text inside)
   renderBaseUI(user);
 
   try {

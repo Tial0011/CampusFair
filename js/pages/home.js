@@ -1,4 +1,4 @@
-// js/pages/home.js (or whatever this file is)
+// js/pages/home.js
 
 import { db } from "../core/firebase.js";
 import {
@@ -23,10 +23,10 @@ function renderBaseUI() {
       </div>
 
       <div class="header-right">
-        <a href="/seller/login.html" class="seller-link">
+        <a id="sellerLogin" class="seller-link">
           Seller Login
         </a>
-        <a href="/seller/register.html" class="seller-btn">
+        <a id="sellerRegister" class="seller-btn">
           Become a Seller
         </a>
       </div>
@@ -50,6 +50,15 @@ function renderBaseUI() {
       </div>
     </section>
   `;
+
+  // 🔒 Hard navigation (prevents back-button auth issue)
+  document.getElementById("sellerLogin").onclick = () => {
+    window.location.replace("/seller/login.html");
+  };
+
+  document.getElementById("sellerRegister").onclick = () => {
+    window.location.replace("/seller/register.html");
+  };
 }
 
 /* ===============================

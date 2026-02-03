@@ -14,6 +14,9 @@ const app = document.getElementById("app");
 const params = new URLSearchParams(window.location.search);
 const sellerId = params.get("sellerId");
 
+let CART = [];
+let SELLER = null;
+
 /* ===============================
    INIT
 ================================ */
@@ -29,10 +32,13 @@ if (!sellerId) {
 async function loadStore() {
   try {
     const seller = await fetchSeller();
+    SELLER = seller;
+
     renderStoreHeader(seller);
 
     const products = await fetchSellerProducts();
-    renderProducts(products, seller);
+    renderProducts(products);
+    renderCartUI();
   } catch (err) {
     console.error(err);
     app.innerHTML = "<p>Failed to load store.</p>";
@@ -46,10 +52,7 @@ async function fetchSeller() {
   const ref = doc(db, "sellers", sellerId);
   const snap = await getDoc(ref);
 
-  if (!snap.exists()) {
-    throw new Error("Seller not found");
-  }
-
+  if (!snap.exists()) throw new Error("Seller not found");
   return snap.data();
 }
 
@@ -73,7 +76,7 @@ async function fetchSellerProducts() {
 }
 
 /* ===============================
-   HEADER + STORE INFO
+   HEADER
 ================================ */
 function renderStoreHeader(seller) {
   app.innerHTML = `
@@ -83,35 +86,34 @@ function renderStoreHeader(seller) {
       </div>
 
       <div class="header-right">
-        <a href="/" class="seller-link">Back to CampusFair</a>
+        <button id="openCart" class="seller-btn">
+          Cart (<span id="cartCount">0</span>)
+        </button>
+        <a href="/" class="seller-link">Back</a>
       </div>
     </header>
 
     <section>
       ${
         seller.bannerUrl
-          ? `
-        <div class="store-banner">
-          <img src="${seller.bannerUrl}" alt="${seller.storeName}" />
-        </div>
-        `
+          ? `<div class="store-banner">
+               <img src="${seller.bannerUrl}" />
+             </div>`
           : ""
       }
 
       <div class="store-header">
         ${
           seller.logoUrl
-            ? `
-          <div class="store-logo">
-            <img src="${seller.logoUrl}" alt="Store logo" />
-          </div>
-          `
+            ? `<div class="store-logo">
+                 <img src="${seller.logoUrl}" />
+               </div>`
             : ""
         }
 
         <div>
           <p class="store-name">${seller.storeName}</p>
-          <p style="font-size:0.8rem;color:var(--muted);">
+          <p class="store-desc">
             ${seller.storeDescription || "Welcome to my store 👋🏽"}
           </p>
         </div>
@@ -126,14 +128,13 @@ function renderStoreHeader(seller) {
 }
 
 /* ===============================
-   RENDER PRODUCTS
+   PRODUCTS
 ================================ */
-function renderProducts(products, seller) {
+function renderProducts(products) {
   const container = document.getElementById("products");
-  container.innerHTML = "";
 
-  if (!products || products.length === 0) {
-    container.innerHTML = "<p>No products available yet.</p>";
+  if (!products.length) {
+    container.innerHTML = "<p>No products yet.</p>";
     return;
   }
 
@@ -142,39 +143,109 @@ function renderProducts(products, seller) {
     card.className = "product-card";
 
     card.innerHTML = `
-      <img src="${p.imageUrl}" alt="${p.name}" />
-
+      <img src="${p.imageUrl}" />
       <h3>${p.name}</h3>
-
       <p class="price">₦${p.price}</p>
-
-      <button
-        onclick="messageSeller(
-          '${seller.phone || ""}',
-          '${p.name}',
-          '${seller.storeName}'
-        )"
-      >
-        Message Seller
-      </button>
+      <button class="add-btn">Add to Cart</button>
     `;
 
+    card.querySelector(".add-btn").onclick = () => addToCart(p);
     container.appendChild(card);
   });
 }
 
 /* ===============================
-   MESSAGE SELLER (WHATSAPP)
+   CART LOGIC
 ================================ */
-window.messageSeller = function (phone, productName, storeName) {
-  if (!phone) {
-    alert("Seller contact not available");
+function addToCart(product) {
+  const exists = CART.find((p) => p.id === product.id);
+
+  if (exists) {
+    exists.qty += 1;
+  } else {
+    CART.push({ ...product, qty: 1 });
+  }
+
+  updateCartUI();
+}
+
+function updateCartUI() {
+  document.getElementById("cartCount").textContent = CART.reduce(
+    (sum, p) => sum + p.qty,
+    0,
+  );
+
+  const list = document.getElementById("cartItems");
+  list.innerHTML = "";
+
+  CART.forEach((p) => {
+    const item = document.createElement("div");
+    item.className = "cart-item";
+
+    item.innerHTML = `
+      <span>${p.name} × ${p.qty}</span>
+      <strong>₦${p.price * p.qty}</strong>
+    `;
+
+    list.appendChild(item);
+  });
+}
+
+/* ===============================
+   CART UI (SLIDE UP)
+================================ */
+function renderCartUI() {
+  const cart = document.createElement("div");
+  cart.id = "cartPanel";
+  cart.className = "cart-panel";
+
+  cart.innerHTML = `
+    <div class="cart-header">
+      <h3>Your Cart</h3>
+      <button id="closeCart">✕</button>
+    </div>
+
+    <div id="cartItems" class="cart-items"></div>
+
+    <button id="checkoutBtn" class="seller-btn">
+      Order on WhatsApp
+    </button>
+  `;
+
+  document.body.appendChild(cart);
+
+  document.getElementById("openCart").onclick = () =>
+    cart.classList.add("show");
+  document.getElementById("closeCart").onclick = () =>
+    cart.classList.remove("show");
+
+  document.getElementById("checkoutBtn").onclick = checkout;
+}
+
+/* ===============================
+   CHECKOUT
+================================ */
+function checkout() {
+  if (!CART.length) {
+    alert("Your cart is empty");
     return;
   }
 
-  const text = encodeURIComponent(
-    `Hello, I’m interested in your ${productName} from ${storeName} on CampusFair.`,
-  );
+  if (!SELLER.phone) {
+    alert("Seller contact unavailable");
+    return;
+  }
 
-  window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
-};
+  let message = `Hello, I’d like to order:\n\n`;
+
+  CART.forEach((p) => {
+    message += `• ${p.name} × ${p.qty} = ₦${p.price * p.qty}\n`;
+  });
+
+  message += `\nFrom ${SELLER.storeName} on CampusFair`;
+
+  window.open(
+    `https://wa.me/${SELLER.phone}?text=${encodeURIComponent(message)}`,
+    "_blank",
+  );
+}

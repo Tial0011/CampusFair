@@ -10,11 +10,12 @@ const CLOUD_NAME = "duh3wgggt";
 const UPLOAD_PRESET = "campusfair_products";
 
 /* ===============================
-   AUTH
+   AUTH GUARD
 ================================ */
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    window.location.href = "/seller/login.html";
+    // 🔒 hard redirect – removes page from history
+    window.location.replace("/");
     return;
   }
 

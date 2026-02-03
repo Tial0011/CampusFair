@@ -1,7 +1,10 @@
+// js/pages/seller-register.js
+
 import { auth, db } from "../core/firebase.js";
-
-import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
-
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 import {
   doc,
   setDoc,
@@ -10,6 +13,16 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
+
+/* ===============================
+   AUTH GUARD
+   (already logged in → dashboard)
+================================ */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    window.location.replace("/seller/dashboard.html");
+  }
+});
 
 /* ===============================
    RENDER REGISTER UI
@@ -34,7 +47,6 @@ function renderRegisterUI() {
         </p>
 
         <input type="text" id="ownerName" placeholder="Your Full Name" required />
-
         <input type="text" id="storeName" placeholder="Store Name" required />
 
         <textarea
@@ -52,7 +64,6 @@ function renderRegisterUI() {
         />
 
         <input type="email" id="email" placeholder="Email address" required />
-
         <input type="password" id="password" placeholder="Password" required />
 
         <button type="submit">Create Store</button>
@@ -135,10 +146,11 @@ function setupRegister() {
         active: true,
       });
 
-      window.location.href = "/seller/dashboard.html";
+      // 🔥 replace so BACK won’t return here
+      window.location.replace("/seller/dashboard.html");
     } catch (err) {
       console.error(err);
-      errorMsg.textContent = err.message;
+      errorMsg.textContent = "Failed to create store. Try again.";
     }
   });
 }

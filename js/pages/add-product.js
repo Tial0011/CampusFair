@@ -13,13 +13,15 @@ const CLOUD_NAME = "duh3wgggt";
 const UPLOAD_PRESET = "campusfair_products";
 
 /* ===============================
-   AUTH CHECK
+   AUTH GUARD (IMPORTANT)
 ================================ */
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    window.location.href = "/seller/login.html";
+    // 🚨 hard redirect → removes this page from history
+    window.location.replace("/");
     return;
   }
+
   renderUI(user);
 });
 
@@ -145,7 +147,7 @@ async function submitProduct(e, user) {
 
   try {
     await addDoc(collection(db, "products"), product);
-    window.location.href = "/seller/dashboard.html";
+    window.location.replace("/seller/dashboard.html");
   } catch (err) {
     alert("Failed to add product");
     console.error(err);
