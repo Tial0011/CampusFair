@@ -8,7 +8,6 @@ import {
   where,
   deleteDoc,
   doc,
-  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -16,14 +15,16 @@ const app = document.getElementById("app");
 /* ===============================
    AUTH GUARD
 ================================ */
-auth.onAuthStateChanged(async (user) => {
+auth.onAuthStateChanged((user) => {
   if (!user) {
-    // hard redirect → buyer page
+    // 🔒 HARD redirect (removes dashboard from history)
     window.location.replace("/");
     return;
   }
 
+  // show loading immediately
   renderLoadingUI();
+
   initDashboard(user);
 });
 
@@ -37,7 +38,7 @@ function renderLoadingUI() {
     </header>
 
     <div class="loading">
-      Loading your dashboard...
+      Loading your products...
     </div>
   `;
 }
@@ -45,7 +46,7 @@ function renderLoadingUI() {
 /* ===============================
    BASE UI
 ================================ */
-function renderBaseUI(user, storeLink) {
+function renderBaseUI(user) {
   app.innerHTML = `
     <header class="header">
       <div class="header-left">
@@ -53,7 +54,11 @@ function renderBaseUI(user, storeLink) {
       </div>
 
       <div class="header-right">
-        <a href="${storeLink}" class="seller-link" target="_blank">
+        <a
+          href="/store.html?sellerId=${user.uid}"
+          class="seller-link"
+          target="_blank"
+        >
           View Store
         </a>
 
@@ -62,22 +67,6 @@ function renderBaseUI(user, storeLink) {
         </button>
       </div>
     </header>
-
-    <section class="store-share">
-      <p><strong>Your store link:</strong></p>
-
-      <div class="copy-box">
-        <input
-          type="text"
-          id="storeLinkInput"
-          value="${storeLink}"
-          readonly
-        />
-        <button id="copyStoreLink">Copy</button>
-      </div>
-
-      <small>Share this link to promote your store 🚀</small>
-    </section>
 
     <section>
       <p class="seller-welcome">
@@ -103,41 +92,15 @@ function renderBaseUI(user, storeLink) {
     </section>
   `;
 
-  // logout
+  // 🔒 SAFE logout
   document.getElementById("logoutBtn").onclick = async () => {
     await auth.signOut();
     window.location.replace("/");
   };
-
-  // copy store link
-  document.getElementById("copyStoreLink").onclick = () => {
-    const input = document.getElementById("storeLinkInput");
-    input.select();
-    input.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(input.value);
-
-    const btn = document.getElementById("copyStoreLink");
-    btn.textContent = "Copied ✓";
-    setTimeout(() => (btn.textContent = "Copy"), 1500);
-  };
 }
 
 /* ===============================
-   FETCH SELLER INFO
-================================ */
-async function fetchSeller(uid) {
-  const ref = doc(db, "sellers", uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    throw new Error("Seller record not found");
-  }
-
-  return snap.data();
-}
-
-/* ===============================
-   FETCH PRODUCTS
+   FETCH SELLER PRODUCTS
 ================================ */
 async function fetchSellerProducts(sellerId) {
   const q = query(
@@ -207,7 +170,11 @@ function setupDeleteButtons() {
     btn.onclick = async () => {
       const productId = btn.dataset.id;
 
-      if (!confirm("Are you sure you want to delete this product?")) return;
+      const confirmDelete = confirm(
+        "Are you sure you want to delete this product?",
+      );
+
+      if (!confirmDelete) return;
 
       btn.disabled = true;
       btn.textContent = "Deleting...";
@@ -226,19 +193,12 @@ function setupDeleteButtons() {
 }
 
 /* ===============================
-   INIT DASHBOARD
+   INIT
 ================================ */
 async function initDashboard(user) {
+  renderBaseUI(user);
+
   try {
-    const seller = await fetchSeller(user.uid);
-
-    // build clean public link
-    const storeLink = seller.storeSlug
-      ? `https://campusfair.netlify.app/s/${seller.storeSlug}`
-      : `https://campusfair.netlify.app/store.html?sellerId=${user.uid}`;
-
-    renderBaseUI(user, storeLink);
-
     const products = await fetchSellerProducts(user.uid);
     renderProducts(products);
   } catch (err) {
