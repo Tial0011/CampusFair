@@ -8,6 +8,7 @@ import {
   where,
   deleteDoc,
   doc,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -17,14 +18,12 @@ const app = document.getElementById("app");
 ================================ */
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    // 🔒 HARD redirect (removes dashboard from history)
+    // 🔒 HARD redirect (prevents back-button issue)
     window.location.replace("/");
     return;
   }
 
-  // show loading immediately
   renderLoadingUI();
-
   initDashboard(user);
 });
 
@@ -38,7 +37,7 @@ function renderLoadingUI() {
     </header>
 
     <div class="loading">
-      Loading your products...
+      Loading your dashboard...
     </div>
   `;
 }
@@ -46,7 +45,9 @@ function renderLoadingUI() {
 /* ===============================
    BASE UI
 ================================ */
-function renderBaseUI(user) {
+function renderBaseUI(user, seller) {
+  const storeLink = `https://campusfair.netlify.app/s/${seller.storeSlug}`;
+
   app.innerHTML = `
     <header class="header">
       <div class="header-left">
@@ -55,7 +56,7 @@ function renderBaseUI(user) {
 
       <div class="header-right">
         <a
-          href="/store.html?sellerId=${user.uid}"
+          href="${storeLink}"
           class="seller-link"
           target="_blank"
         >
@@ -67,6 +68,23 @@ function renderBaseUI(user) {
         </button>
       </div>
     </header>
+
+    <section class="seller-store-link">
+      <p><strong>Your store link</strong></p>
+
+      <div class="store-link-box">
+        <input
+          type="text"
+          id="storeLinkInput"
+          value="${storeLink}"
+          readonly
+        />
+
+        <button id="copyLinkBtn" class="seller-btn small">
+          Copy Link
+        </button>
+      </div>
+    </section>
 
     <section>
       <p class="seller-welcome">
@@ -92,11 +110,39 @@ function renderBaseUI(user) {
     </section>
   `;
 
-  // 🔒 SAFE logout
+  /* LOGOUT */
   document.getElementById("logoutBtn").onclick = async () => {
     await auth.signOut();
     window.location.replace("/");
   };
+
+  /* COPY LINK */
+  const copyBtn = document.getElementById("copyLinkBtn");
+  const input = document.getElementById("storeLinkInput");
+
+  copyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(input.value);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => (copyBtn.textContent = "Copy Link"), 1500);
+    } catch (err) {
+      alert("Failed to copy link");
+    }
+  };
+}
+
+/* ===============================
+   FETCH SELLER DATA
+================================ */
+async function fetchSeller(uid) {
+  const ref = doc(db, "sellers", uid);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) {
+    throw new Error("Seller not found");
+  }
+
+  return snap.data();
 }
 
 /* ===============================
@@ -170,11 +216,7 @@ function setupDeleteButtons() {
     btn.onclick = async () => {
       const productId = btn.dataset.id;
 
-      const confirmDelete = confirm(
-        "Are you sure you want to delete this product?",
-      );
-
-      if (!confirmDelete) return;
+      if (!confirm("Are you sure you want to delete this product?")) return;
 
       btn.disabled = true;
       btn.textContent = "Deleting...";
@@ -184,7 +226,6 @@ function setupDeleteButtons() {
         btn.closest(".product-card").remove();
       } catch (err) {
         alert("Failed to delete product");
-        console.error(err);
         btn.disabled = false;
         btn.textContent = "Delete";
       }
@@ -196,9 +237,10 @@ function setupDeleteButtons() {
    INIT
 ================================ */
 async function initDashboard(user) {
-  renderBaseUI(user);
-
   try {
+    const seller = await fetchSeller(user.uid);
+    renderBaseUI(user, seller);
+
     const products = await fetchSellerProducts(user.uid);
     renderProducts(products);
   } catch (err) {
