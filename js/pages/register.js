@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+
 import {
   doc,
   setDoc,
@@ -26,7 +27,7 @@ onAuthStateChanged(auth, (user) => {
 });
 
 /* ===============================
-   SLUGIFY
+   SLUGIFY FUNCTION
 ================================ */
 function slugify(text) {
   return text
@@ -50,7 +51,7 @@ async function isStoreNameTaken(storeName) {
 }
 
 /* ===============================
-   RENDER REGISTER UI
+   UI
 ================================ */
 function renderRegisterUI() {
   app.innerHTML = `
@@ -59,13 +60,7 @@ function renderRegisterUI() {
       <p>Start selling on CampusFair</p>
 
       <form id="registerForm">
-
-        <input
-          type="text"
-          id="sellerCode"
-          placeholder="Seller Code (CF-001)"
-          required
-        />
+        <input type="text" id="sellerCode" placeholder="Seller Code (CF-001)" required />
 
         <p style="font-size:0.75rem;color:#64748b;margin-top:-6px">
           To get a seller code, contact <strong>+2347060577255</strong>
@@ -76,18 +71,12 @@ function renderRegisterUI() {
 
         <textarea
           id="storeDescription"
-          placeholder="Describe your business (what you sell, quality, delivery, etc)"
+          placeholder="Describe your business"
           rows="4"
           required
         ></textarea>
 
-        <input
-          type="tel"
-          id="phone"
-          placeholder="WhatsApp Number (e.g. +2348012345678)"
-          required
-        />
-
+        <input type="tel" id="phone" placeholder="WhatsApp Number" required />
         <input type="email" id="email" placeholder="Email address" required />
         <input type="password" id="password" placeholder="Password" required />
 
@@ -125,72 +114,69 @@ function setupRegister() {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
-    if (phone.length < 10) {
-      errorMsg.textContent = "Enter a valid WhatsApp number";
+    if (!storeName || storeName.length < 3) {
+      errorMsg.textContent = "Store name is too short";
       return;
     }
 
     try {
       /* ===============================
-         STORE NAME CHECK
+         CHECK STORE NAME
       ================================ */
       const taken = await isStoreNameTaken(storeName);
       if (taken) {
-        errorMsg.textContent =
-          "Store name already exists. Please choose another.";
+        errorMsg.textContent = "Store name already exists.";
         return;
       }
 
       /* ===============================
          VALIDATE SELLER CODE
       ================================ */
-      const codeRef = doc(db, "meta", "sellerCode");
-      const codeSnap = await getDoc(codeRef);
+      const codeSnap = await getDoc(doc(db, "meta", "sellerCode"));
 
       if (!codeSnap.exists()) {
         errorMsg.textContent = "Seller code system unavailable.";
         return;
       }
 
-      const { currentCode } = codeSnap.data();
-
-      if (sellerCode !== currentCode) {
+      if (sellerCode !== codeSnap.data().currentCode) {
         errorMsg.textContent = "Invalid seller code.";
         return;
       }
 
       /* ===============================
-         CREATE AUTH ACCOUNT
+         CREATE AUTH USER
       ================================ */
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
 
       /* ===============================
-         CREATE SLUG
+         CREATE STORE SLUG
       ================================ */
       const storeSlug = slugify(storeName);
 
       /* ===============================
-         CREATE SELLER DOCUMENT
+         SAVE SELLER
       ================================ */
       await setDoc(doc(db, "sellers", uid), {
+        uid,
         sellerCode,
         ownerName,
         storeName,
         storeNameLower: storeName.toLowerCase(),
-        storeSlug, // ✅ permanent slug
+        storeSlug,
         storeDescription,
         phone,
         email,
-        createdAt: serverTimestamp(),
         productCount: 0,
         active: true,
+        createdAt: serverTimestamp(),
       });
 
       window.location.replace("/seller/dashboard.html");
     } catch (err) {
       console.error(err);
-      errorMsg.textContent = "Failed to create store. Try again.";
+      errorMsg.textContent = "Failed to create store.";
     }
   });
 }
@@ -198,9 +184,5 @@ function setupRegister() {
 /* ===============================
    INIT
 ================================ */
-function init() {
-  renderRegisterUI();
-  setupRegister();
-}
-
-init();
+renderRegisterUI();
+setupRegister();
