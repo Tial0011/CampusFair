@@ -57,7 +57,7 @@ async function fetchSeller(uid) {
 }
 
 /* ===============================
-   UI
+   BASE UI
 ================================ */
 function renderBaseUI(storeLink) {
   app.innerHTML = `
@@ -110,7 +110,6 @@ function renderBaseUI(storeLink) {
 ================================ */
 async function fetchSellerProducts(uid) {
   const q = query(collection(db, "products"), where("sellerId", "==", uid));
-
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
@@ -131,20 +130,42 @@ function renderProducts(products) {
     card.className = "product-card";
 
     card.innerHTML = `
-      <img src="${p.imageUrl}" />
+      <img src="${p.imageUrl}" alt="${p.name}" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
-      <button class="delete-btn" data-id="${p.id}">Delete</button>
+
+      <div class="dashboard-actions">
+        <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
+        <button class="delete-btn" data-id="${p.id}">Delete</button>
+      </div>
     `;
 
     box.appendChild(card);
   });
 
+  setupDeleteButtons();
+}
+
+/* ===============================
+   DELETE PRODUCT
+================================ */
+function setupDeleteButtons() {
   document.querySelectorAll(".delete-btn").forEach((btn) => {
     btn.onclick = async () => {
       if (!confirm("Delete product?")) return;
-      await deleteDoc(doc(db, "products", btn.dataset.id));
-      btn.closest(".product-card").remove();
+
+      btn.disabled = true;
+      btn.textContent = "Deleting...";
+
+      try {
+        await deleteDoc(doc(db, "products", btn.dataset.id));
+        btn.closest(".product-card").remove();
+      } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+        btn.textContent = "Delete";
+        alert("Failed to delete product");
+      }
     };
   });
 }
