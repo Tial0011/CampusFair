@@ -31,12 +31,6 @@ function renderLoadingUI() {
   app.innerHTML = `
     <header class="header">
       <h2>Seller Dashboard</h2>
-      <div class="header-right">
-        <a href="${storeLink}" target="_blank" class="seller-link">
-          View Store
-        </a>
-        <button id="logoutBtn" class="seller-btn">Logout</button>
-      </div>
     </header>
     <div class="loading">Loading your dashboard...</div>
   `;
