@@ -162,15 +162,13 @@ function renderProducts(products) {
     const card = document.createElement("div");
     card.className = "product-card";
 
-    const imgSrc = p.imageUrl || "https://via.placeholder.com/300x200";
-
     card.innerHTML = `
-      <img src="${imgSrc}" onerror="this.src='https://via.placeholder.com/300x200'"/>
+      <img src="${p.imageUrl}" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
-      <div style="display: flex; gap: 8px; margin-top: 10px;">
-        <a href="/seller/edit-product.html?id=${p.id}" class="seller-btn" style="flex: 1; padding: 8px; text-align: center;">Edit</a>
-        <button class="delete-btn" data-id="${p.id}" style="flex: 1; padding: 8px;">Delete</button>
+      <div class="dashboard-actions">
+        <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
+        <button class="delete-btn" data-id="${p.id}">Delete</button>
       </div>
     `;
 
