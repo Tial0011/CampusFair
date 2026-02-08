@@ -332,7 +332,7 @@ section h2 {
 }
 
 /* DELETE */
-.dashboard-actions button {
+.dashboard-actions-button {
   background: #ffffff;
   color: var(--danger);
   margin: 0;

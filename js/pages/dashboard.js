@@ -168,7 +168,7 @@ function renderProducts(products) {
       <p class="price">₦${p.price}</p>
       <div class="dashboard-actions">
         <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
-        <button class=".dashboard-actions button" data-id="${p.id}">Delete</button>
+        <button class="dashboard-actions-button" data-id="${p.id}">Delete</button>
       </div>
     `;
 
