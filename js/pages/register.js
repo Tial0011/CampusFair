@@ -187,10 +187,16 @@ function setupRegister() {
         active: true,
       });
 
+      console.log("Seller document created for UID:", uid);
+
+      // Wait briefly to ensure data is committed
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       window.location.replace("/seller/dashboard.html");
     } catch (err) {
-      console.error(err);
-      errorMsg.textContent = "Failed to create store. Try again.";
+      console.error("Registration error:", err);
+      errorMsg.textContent =
+        err.message || "Failed to create store. Try again.";
     }
   });
 }
