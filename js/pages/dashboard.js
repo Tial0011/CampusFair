@@ -30,7 +30,7 @@ auth.onAuthStateChanged((user) => {
 function renderLoadingUI() {
   app.innerHTML = `
     <header class="header">
-      <h1>Seller Dashboard</h1>
+      <h2>Seller Dashboard</h2>
     </header>
     <div class="loading">Loading your dashboard...</div>
   `;
