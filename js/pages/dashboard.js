@@ -8,6 +8,7 @@ import {
   where,
   deleteDoc,
   doc,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -17,14 +18,11 @@ const app = document.getElementById("app");
 ================================ */
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    // 🔒 HARD redirect (removes dashboard from history)
     window.location.replace("/");
     return;
   }
 
-  // show loading immediately
   renderLoadingUI();
-
   initDashboard(user);
 });
 
@@ -36,17 +34,37 @@ function renderLoadingUI() {
     <header class="header">
       <h1>Seller Dashboard</h1>
     </header>
-
-    <div class="loading">
-      Loading your products...
-    </div>
+    <div class="loading">Loading your dashboard...</div>
   `;
+}
+
+/* ===============================
+   SLUG GENERATOR (FROM STORE NAME)
+================================ */
+function generateSlug(storeName) {
+  return storeName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+/* ===============================
+   FETCH SELLER DATA
+================================ */
+async function fetchSeller(uid) {
+  const ref = doc(db, "sellers", uid);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) throw new Error("Seller not found");
+
+  return snap.data();
 }
 
 /* ===============================
    BASE UI
 ================================ */
-function renderBaseUI(user) {
+function renderBaseUI(user, seller, storeLink) {
   app.innerHTML = `
     <header class="header">
       <div class="header-left">
@@ -54,32 +72,24 @@ function renderBaseUI(user) {
       </div>
 
       <div class="header-right">
-        <a
-          href="/store.html?sellerId=${user.uid}"
-          class="seller-link"
-          target="_blank"
-        >
+        <a href="${storeLink}" class="seller-link" target="_blank">
           View Store
         </a>
 
-        <button id="logoutBtn" class="seller-btn">
-          Logout
-        </button>
+        <button id="logoutBtn" class="seller-btn">Logout</button>
       </div>
     </header>
 
-    <section>
-      <p class="seller-welcome">
-        Welcome back 👋🏽 Manage your products below.
-      </p>
+    <section class="store-link-box">
+      <p><strong>Your Store Link</strong></p>
+      <div class="copy-row">
+        <input type="text" value="${storeLink}" readonly />
+        <button id="copyLinkBtn">Copy</button>
+      </div>
     </section>
 
     <section>
-      <a
-        href="/seller/add-product.html"
-        class="seller-btn"
-        style="display:inline-block;"
-      >
+      <a href="/seller/add-product.html" class="seller-btn">
         + Add New Product
       </a>
     </section>
@@ -92,15 +102,19 @@ function renderBaseUI(user) {
     </section>
   `;
 
-  // 🔒 SAFE logout
   document.getElementById("logoutBtn").onclick = async () => {
     await auth.signOut();
     window.location.replace("/");
   };
+
+  document.getElementById("copyLinkBtn").onclick = () => {
+    navigator.clipboard.writeText(storeLink);
+    document.getElementById("copyLinkBtn").textContent = "Copied ✓";
+  };
 }
 
 /* ===============================
-   FETCH SELLER PRODUCTS
+   FETCH PRODUCTS
 ================================ */
 async function fetchSellerProducts(sellerId) {
   const q = query(
@@ -109,13 +123,7 @@ async function fetchSellerProducts(sellerId) {
   );
 
   const snapshot = await getDocs(q);
-  const products = [];
-
-  snapshot.forEach((docSnap) => {
-    products.push({ id: docSnap.id, ...docSnap.data() });
-  });
-
-  return products;
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 /* ===============================
@@ -138,19 +146,12 @@ function renderProducts(products) {
 
     card.innerHTML = `
       <img src="${p.imageUrl}" alt="${p.name}" />
-
       <h3>${p.name}</h3>
-
       <p class="price">₦${p.price}</p>
 
       <div class="dashboard-actions">
-        <a href="/seller/edit-product.html?id=${p.id}">
-          Edit
-        </a>
-
-        <button class="delete-btn" data-id="${p.id}">
-          Delete
-        </button>
+        <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
+        <button class="delete-btn" data-id="${p.id}">Delete</button>
       </div>
     `;
 
@@ -164,29 +165,20 @@ function renderProducts(products) {
    DELETE PRODUCT
 ================================ */
 function setupDeleteButtons() {
-  const buttons = document.querySelectorAll(".delete-btn");
-
-  buttons.forEach((btn) => {
+  document.querySelectorAll(".delete-btn").forEach((btn) => {
     btn.onclick = async () => {
-      const productId = btn.dataset.id;
-
-      const confirmDelete = confirm(
-        "Are you sure you want to delete this product?",
-      );
-
-      if (!confirmDelete) return;
+      if (!confirm("Delete this product?")) return;
 
       btn.disabled = true;
       btn.textContent = "Deleting...";
 
       try {
-        await deleteDoc(doc(db, "products", productId));
+        await deleteDoc(doc(db, "products", btn.dataset.id));
         btn.closest(".product-card").remove();
-      } catch (err) {
-        alert("Failed to delete product");
-        console.error(err);
-        btn.disabled = false;
+      } catch {
         btn.textContent = "Delete";
+        btn.disabled = false;
+        alert("Failed to delete");
       }
     };
   });
@@ -196,9 +188,13 @@ function setupDeleteButtons() {
    INIT
 ================================ */
 async function initDashboard(user) {
-  renderBaseUI(user);
-
   try {
+    const seller = await fetchSeller(user.uid);
+    const slug = generateSlug(seller.storeName);
+    const storeLink = `https://campusfair.netlify.app/s/${slug}`;
+
+    renderBaseUI(user, seller, storeLink);
+
     const products = await fetchSellerProducts(user.uid);
     renderProducts(products);
   } catch (err) {

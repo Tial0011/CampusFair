@@ -532,3 +532,33 @@ section h2 {
   font-size: 1rem;
   cursor: pointer;
 }
+.store-link-box {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.copy-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.copy-row input {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.copy-row button {
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: #0f172a;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
