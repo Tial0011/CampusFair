@@ -267,34 +267,6 @@ section h2 {
   color: var(--danger);
   text-align: center;
 }
-
-/* ===============================
-   DESKTOP
-================================ */
-@media (min-width: 768px) {
-  .header {
-    grid-template-columns: auto 1fr auto;
-    grid-template-areas: "logo search actions";
-    align-items: center;
-  }
-
-  #searchInput {
-    margin: 0 auto;
-    max-width: 520px;
-  }
-
-  .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  }
-
-  .product-card img {
-    height: 170px;
-  }
-  .product-card button {
-    padding: 10px;
-    font-size: 0.82rem;
-  }
-}
 /* ===============================
    IMAGE UPLOAD (DRAG & DROP)
 ================================ */
@@ -554,62 +526,29 @@ section h2 {
   cursor: pointer;
 }
 /* ===============================
-   STORE (MOBILE-FIRST FIX)
-   Applies to /store & /s/{slug}
+   DESKTOP
 ================================ */
+@media (min-width: 768px) {
+  .header {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "logo search actions";
+    align-items: center;
+  }
 
-/* tighten overall page */
-section {
-  padding: 0.75rem;
-}
+  #searchInput {
+    margin: 0 auto;
+    max-width: 520px;
+  }
 
-/* store header spacing */
-.store-header {
-  margin-bottom: 0.6rem;
-}
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
 
-.store-name {
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.store-desc {
-  font-size: 0.75rem;
-  line-height: 1.35;
-  color: var(--muted);
-}
-
-/* header title on phone */
-.header-left h1 {
-  font-size: 1rem;
-}
-
-/* cart + back buttons tighter */
-.header-right .seller-btn,
-.header-right .seller-link {
-  font-size: 0.7rem;
-  padding: 0.4rem 0.55rem;
-}
-
-/* ===============================
-   PRODUCTS GRID (PHONE FEEL)
-================================ */
-.products-grid {
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.6rem;
-}
-
-/* ===============================
-   PRODUCT CARD (PHONE SIZE)
-================================ */
-.product-card {
-  border-radius: 12px;
-}
-
-.product-card img {
-  height: 120px;
-}
-
-.product-card h3 {
-  font-size: 0;
+  .product-card img {
+    height: 170px;
+  }
+  .product-card button {
+    padding: 10px;
+    font-size: 0.82rem;
+  }
 }
