@@ -1,5 +1,3 @@
-// js/pages/seller-register.js
-
 import { auth, db } from "../core/firebase.js";
 import {
   createUserWithEmailAndPassword,
@@ -10,19 +8,35 @@ import {
   setDoc,
   getDoc,
   serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
 
 /* ===============================
    AUTH GUARD
-   (already logged in → dashboard)
 ================================ */
 onAuthStateChanged(auth, (user) => {
   if (user) {
     window.location.replace("/seller/dashboard.html");
   }
 });
+
+/* ===============================
+   CHECK STORE NAME UNIQUENESS
+================================ */
+async function isStoreNameTaken(storeName) {
+  const q = query(
+    collection(db, "sellers"),
+    where("storeNameLower", "==", storeName.toLowerCase()),
+  );
+
+  const snap = await getDocs(q);
+  return !snap.empty;
+}
 
 /* ===============================
    RENDER REGISTER UI
@@ -107,6 +121,16 @@ function setupRegister() {
 
     try {
       /* ===============================
+         STORE NAME CHECK
+      ================================ */
+      const taken = await isStoreNameTaken(storeName);
+      if (taken) {
+        errorMsg.textContent =
+          "Store name already exists. Please choose another.";
+        return;
+      }
+
+      /* ===============================
          VALIDATE SELLER CODE
       ================================ */
       const codeRef = doc(db, "meta", "sellerCode");
@@ -138,6 +162,7 @@ function setupRegister() {
         sellerCode,
         ownerName,
         storeName,
+        storeNameLower: storeName.toLowerCase(), // 🔒 uniqueness
         storeDescription,
         phone,
         email,
@@ -146,7 +171,6 @@ function setupRegister() {
         active: true,
       });
 
-      // 🔥 replace so BACK won’t return here
       window.location.replace("/seller/dashboard.html");
     } catch (err) {
       console.error(err);
