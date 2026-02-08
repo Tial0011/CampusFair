@@ -1,5 +1,3 @@
-// js/pages/dashboard.js
-
 import { auth, db } from "../core/firebase.js";
 import {
   collection,
@@ -64,7 +62,7 @@ async function fetchSeller(uid) {
 /* ===============================
    BASE UI
 ================================ */
-function renderBaseUI(user, seller, storeLink) {
+function renderBaseUI(storeLink) {
   app.innerHTML = `
     <header class="header">
       <div class="header-left">
@@ -75,7 +73,6 @@ function renderBaseUI(user, seller, storeLink) {
         <a href="${storeLink}" class="seller-link" target="_blank">
           View Store
         </a>
-
         <button id="logoutBtn" class="seller-btn">Logout</button>
       </div>
     </header>
@@ -190,10 +187,11 @@ function setupDeleteButtons() {
 async function initDashboard(user) {
   try {
     const seller = await fetchSeller(user.uid);
+
     const slug = generateSlug(seller.storeName);
     const storeLink = `https://campusfair.netlify.app/s/${slug}`;
 
-    renderBaseUI(user, seller, storeLink);
+    renderBaseUI(storeLink);
 
     const products = await fetchSellerProducts(user.uid);
     renderProducts(products);
