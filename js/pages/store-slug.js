@@ -9,14 +9,14 @@ import {
 const app = document.getElementById("app");
 
 /* ===============================
-   GET SLUG FROM URL
+   GET SLUG
 ================================ */
-const slug = window.location.pathname.split("/").pop();
+const slug = window.location.pathname.split("/").filter(Boolean).pop();
 
 /* ===============================
-   SLUG GENERATOR (SAME AS DASHBOARD)
+   SLUGIFY
 ================================ */
-function generateSlug(name) {
+function slugify(name) {
   return name
     .toLowerCase()
     .trim()
@@ -25,53 +25,45 @@ function generateSlug(name) {
 }
 
 /* ===============================
-   LOAD STORE BY SLUG
+   LOAD STORE
 ================================ */
 async function loadStore() {
-  app.innerHTML = "<p class='loading'>Loading store...</p>";
+  app.innerHTML = "<p>Loading store...</p>";
 
-  try {
-    const sellersSnap = await getDocs(collection(db, "sellers"));
+  const sellersSnap = await getDocs(collection(db, "sellers"));
+  let seller = null;
 
-    let seller = null;
-
-    sellersSnap.forEach((docSnap) => {
-      const data = docSnap.data();
-      const storeSlug = generateSlug(data.storeName);
-
-      if (storeSlug === slug) {
-        seller = { id: docSnap.id, ...data };
-      }
-    });
-
-    if (!seller) {
-      app.innerHTML = "<h2>Store not found</h2>";
-      return;
+  sellersSnap.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (slugify(data.storeName) === slug) {
+      seller = { id: docSnap.id, ...data };
     }
+  });
 
-    renderStoreHeader(seller);
-    loadProducts(seller.id);
-  } catch (err) {
-    console.error(err);
-    app.innerHTML = "<p>Failed to load store</p>";
+  if (!seller) {
+    app.innerHTML = "<h2>Store not found</h2>";
+    return;
   }
+
+  renderStore(seller);
+  loadProducts(seller.id, seller.phone);
 }
 
 /* ===============================
-   STORE HEADER
+   RENDER STORE
 ================================ */
-function renderStoreHeader(seller) {
+function renderStore(seller) {
   app.innerHTML = `
     <header class="store-header">
       <h1>${seller.storeName}</h1>
       <p>${seller.storeDescription}</p>
-      <p class="contact">📞 ${seller.phone}</p>
+      <p>📞 ${seller.phone}</p>
     </header>
 
     <section>
       <h2>Products</h2>
       <div id="products" class="products-grid">
-        <p class="loading">Loading products...</p>
+        <p>Loading products...</p>
       </div>
     </section>
   `;
@@ -80,8 +72,8 @@ function renderStoreHeader(seller) {
 /* ===============================
    LOAD PRODUCTS
 ================================ */
-async function loadProducts(sellerId) {
-  const productsBox = document.getElementById("products");
+async function loadProducts(sellerId, phone) {
+  const box = document.getElementById("products");
 
   const q = query(
     collection(db, "products"),
@@ -91,11 +83,11 @@ async function loadProducts(sellerId) {
   const snap = await getDocs(q);
 
   if (snap.empty) {
-    productsBox.innerHTML = "<p>No products yet.</p>";
+    box.innerHTML = "<p>No products yet.</p>";
     return;
   }
 
-  productsBox.innerHTML = "";
+  box.innerHTML = "";
 
   snap.forEach((docSnap) => {
     const p = docSnap.data();
@@ -104,11 +96,11 @@ async function loadProducts(sellerId) {
     card.className = "product-card";
 
     card.innerHTML = `
-      <img src="${p.imageUrl}" alt="${p.name}" />
+      <img src="${p.imageUrl}" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
       <a
-        href="https://wa.me/${sellerPhone(p)}"
+        href="https://wa.me/${phone.replace(/\D/g, "")}"
         target="_blank"
         class="buy-btn"
       >
@@ -116,18 +108,8 @@ async function loadProducts(sellerId) {
       </a>
     `;
 
-    productsBox.appendChild(card);
+    box.appendChild(card);
   });
 }
 
-/* ===============================
-   FORMAT PHONE FOR WHATSAPP
-================================ */
-function sellerPhone(p) {
-  return p.phone?.replace(/\D/g, "") || "";
-}
-
-/* ===============================
-   INIT
-================================ */
 loadStore();

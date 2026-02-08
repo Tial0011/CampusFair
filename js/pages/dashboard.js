@@ -37,10 +37,10 @@ function renderLoadingUI() {
 }
 
 /* ===============================
-   SLUG GENERATOR (FROM STORE NAME)
+   SLUG FROM STORE NAME
 ================================ */
-function generateSlug(storeName) {
-  return storeName
+function slugify(name) {
+  return name
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
@@ -48,29 +48,24 @@ function generateSlug(storeName) {
 }
 
 /* ===============================
-   FETCH SELLER DATA
+   FETCH SELLER
 ================================ */
 async function fetchSeller(uid) {
-  const ref = doc(db, "sellers", uid);
-  const snap = await getDoc(ref);
-
+  const snap = await getDoc(doc(db, "sellers", uid));
   if (!snap.exists()) throw new Error("Seller not found");
-
   return snap.data();
 }
 
 /* ===============================
-   BASE UI
+   UI
 ================================ */
 function renderBaseUI(storeLink) {
   app.innerHTML = `
     <header class="header">
-      <div class="header-left">
-        <h1>Seller Dashboard</h1>
-      </div>
+      <h1>Seller Dashboard</h1>
 
       <div class="header-right">
-        <a href="${storeLink}" class="seller-link" target="_blank">
+        <a href="${storeLink}" target="_blank" class="seller-link">
           View Store
         </a>
         <button id="logoutBtn" class="seller-btn">Logout</button>
@@ -81,7 +76,7 @@ function renderBaseUI(storeLink) {
       <p><strong>Your Store Link</strong></p>
       <div class="copy-row">
         <input type="text" value="${storeLink}" readonly />
-        <button id="copyLinkBtn">Copy</button>
+        <button id="copyBtn">Copy</button>
       </div>
     </section>
 
@@ -104,79 +99,52 @@ function renderBaseUI(storeLink) {
     window.location.replace("/");
   };
 
-  document.getElementById("copyLinkBtn").onclick = () => {
+  document.getElementById("copyBtn").onclick = () => {
     navigator.clipboard.writeText(storeLink);
-    document.getElementById("copyLinkBtn").textContent = "Copied ✓";
+    document.getElementById("copyBtn").textContent = "Copied ✓";
   };
 }
 
 /* ===============================
-   FETCH PRODUCTS
+   PRODUCTS
 ================================ */
-async function fetchSellerProducts(sellerId) {
-  const q = query(
-    collection(db, "products"),
-    where("sellerId", "==", sellerId),
-  );
+async function fetchSellerProducts(uid) {
+  const q = query(collection(db, "products"), where("sellerId", "==", uid));
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-/* ===============================
-   RENDER PRODUCTS
-================================ */
 function renderProducts(products) {
-  const container = document.getElementById("products");
-  container.innerHTML = "";
+  const box = document.getElementById("products");
+  box.innerHTML = "";
 
-  if (products.length === 0) {
-    container.innerHTML = "<p>You haven’t added any products yet.</p>";
+  if (!products.length) {
+    box.innerHTML = "<p>No products yet.</p>";
     return;
   }
 
-  container.className = "products-grid";
+  box.className = "products-grid";
 
   products.forEach((p) => {
     const card = document.createElement("div");
     card.className = "product-card";
 
     card.innerHTML = `
-      <img src="${p.imageUrl}" alt="${p.name}" />
+      <img src="${p.imageUrl}" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
-
-      <div class="dashboard-actions">
-        <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
-        <button class="delete-btn" data-id="${p.id}">Delete</button>
-      </div>
+      <button class="delete-btn" data-id="${p.id}">Delete</button>
     `;
 
-    container.appendChild(card);
+    box.appendChild(card);
   });
 
-  setupDeleteButtons();
-}
-
-/* ===============================
-   DELETE PRODUCT
-================================ */
-function setupDeleteButtons() {
   document.querySelectorAll(".delete-btn").forEach((btn) => {
     btn.onclick = async () => {
-      if (!confirm("Delete this product?")) return;
-
-      btn.disabled = true;
-      btn.textContent = "Deleting...";
-
-      try {
-        await deleteDoc(doc(db, "products", btn.dataset.id));
-        btn.closest(".product-card").remove();
-      } catch {
-        btn.textContent = "Delete";
-        btn.disabled = false;
-        alert("Failed to delete");
-      }
+      if (!confirm("Delete product?")) return;
+      await deleteDoc(doc(db, "products", btn.dataset.id));
+      btn.closest(".product-card").remove();
     };
   });
 }
@@ -187,8 +155,7 @@ function setupDeleteButtons() {
 async function initDashboard(user) {
   try {
     const seller = await fetchSeller(user.uid);
-
-    const slug = generateSlug(seller.storeName);
+    const slug = slugify(seller.storeName);
     const storeLink = `https://campusfair.netlify.app/s/${slug}`;
 
     renderBaseUI(storeLink);
@@ -197,6 +164,6 @@ async function initDashboard(user) {
     renderProducts(products);
   } catch (err) {
     console.error(err);
-    app.innerHTML = "<p>Failed to load dashboard.</p>";
+    app.innerHTML = "<p>Failed to load dashboard</p>";
   }
 }
