@@ -453,15 +453,6 @@ section h2 {
     opacity: 0.4;
   }
 }
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  padding: 2rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
 
 .spinner {
   width: 18px;
