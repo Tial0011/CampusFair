@@ -91,7 +91,7 @@ function renderRegisterUI() {
         <input type="email" id="email" placeholder="Email address" required />
         <input type="password" id="password" placeholder="Password" required />
 
-        <button type="submit">Create Store</button>
+        <button type="submit" id="submitBtn">Create Store</button>
       </form>
 
       <p class="auth-footer">
@@ -99,9 +99,49 @@ function renderRegisterUI() {
         <a href="/seller/login.html">Login</a>
       </p>
 
-      <p id="errorMsg" class="error"></p>
+      <div id="statusMsg"></div>
     </div>
   `;
+}
+
+/* ===============================
+   SHOW STATUS MESSAGE
+================================ */
+function showStatus(message, type = "error") {
+  const statusMsg = document.getElementById("statusMsg");
+  statusMsg.innerHTML = `<p class="${type}">${message}</p>`;
+  statusMsg.style.display = "block";
+}
+
+/* ===============================
+   VERIFY SELLER DOCUMENT WAS CREATED
+================================ */
+async function verifySellerDocument(uid) {
+  console.log("Verifying seller document for UID:", uid);
+
+  // Try multiple times with delay
+  for (let i = 0; i < 5; i++) {
+    try {
+      const sellerDoc = await getDoc(doc(db, "sellers", uid));
+      if (sellerDoc.exists()) {
+        console.log("✅ Seller document verified on attempt", i + 1);
+        return true;
+      }
+      console.log("Attempt", i + 1, ": Seller document not found yet");
+    } catch (error) {
+      console.log(
+        "Attempt",
+        i + 1,
+        ": Error checking document:",
+        error.message,
+      );
+    }
+
+    // Wait 1 second before trying again
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  return false;
 }
 
 /* ===============================
@@ -109,11 +149,16 @@ function renderRegisterUI() {
 ================================ */
 function setupRegister() {
   const form = document.getElementById("registerForm");
-  const errorMsg = document.getElementById("errorMsg");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    errorMsg.textContent = "";
+    const submitBtn = document.getElementById("submitBtn");
+    const originalText = submitBtn.textContent;
+
+    // Clear previous messages
+    showStatus("", "info");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating store...";
 
     const sellerCode = document.getElementById("sellerCode").value.trim();
     const ownerName = document.getElementById("ownerName").value.trim();
@@ -125,45 +170,66 @@ function setupRegister() {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
+    // Validation
+    if (!sellerCode.startsWith("CF-")) {
+      showStatus("Seller code must start with 'CF-' (e.g., CF-001)");
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      return;
+    }
+
     if (phone.length < 10) {
-      errorMsg.textContent = "Enter a valid WhatsApp number";
+      showStatus("Enter a valid WhatsApp number");
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
       return;
     }
 
     try {
+      console.log("Starting registration process...");
+
       /* ===============================
          STORE NAME CHECK
       ================================ */
+      showStatus("Checking store name availability...", "info");
       const taken = await isStoreNameTaken(storeName);
       if (taken) {
-        errorMsg.textContent =
-          "Store name already exists. Please choose another.";
+        showStatus("Store name already exists. Please choose another.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
         return;
       }
 
       /* ===============================
          VALIDATE SELLER CODE
       ================================ */
+      showStatus("Validating seller code...", "info");
       const codeRef = doc(db, "meta", "sellerCode");
       const codeSnap = await getDoc(codeRef);
 
       if (!codeSnap.exists()) {
-        errorMsg.textContent = "Seller code system unavailable.";
+        showStatus("Seller code system unavailable. Please contact support.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
         return;
       }
 
       const { currentCode } = codeSnap.data();
 
       if (sellerCode !== currentCode) {
-        errorMsg.textContent = "Invalid seller code.";
+        showStatus("Invalid seller code. Please check and try again.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
         return;
       }
 
       /* ===============================
          CREATE AUTH ACCOUNT
       ================================ */
+      showStatus("Creating account...", "info");
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
+      console.log("✅ Auth account created. UID:", uid);
 
       /* ===============================
          CREATE SLUG
@@ -173,30 +239,82 @@ function setupRegister() {
       /* ===============================
          CREATE SELLER DOCUMENT
       ================================ */
-      await setDoc(doc(db, "sellers", uid), {
+      showStatus("Creating seller profile...", "info");
+
+      const sellerData = {
         sellerCode,
         ownerName,
         storeName,
         storeNameLower: storeName.toLowerCase(),
-        storeSlug, // ✅ permanent slug
+        storeSlug,
         storeDescription,
         phone,
         email,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         productCount: 0,
         active: true,
-      });
+        uid: uid, // Also store UID in the document for easy reference
+      };
 
-      console.log("Seller document created for UID:", uid);
+      console.log("Creating seller document with data:", sellerData);
 
-      // Wait briefly to ensure data is committed
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        await setDoc(doc(db, "sellers", uid), sellerData);
+        console.log("✅ Seller document created");
+      } catch (firestoreError) {
+        console.error("Firestore error:", firestoreError);
+        // If Firestore fails, delete the auth account to keep things clean
+        await auth.currentUser.delete();
+        showStatus("Failed to create store profile. Please try again.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        return;
+      }
 
-      window.location.replace("/seller/dashboard.html");
+      /* ===============================
+         VERIFY DOCUMENT WAS CREATED
+      ================================ */
+      showStatus("Verifying store creation...", "info");
+      const verified = await verifySellerDocument(uid);
+
+      if (!verified) {
+        showStatus(
+          "Store created but verification failed. Please try logging in.",
+        );
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        return;
+      }
+
+      /* ===============================
+         SUCCESS - REDIRECT
+      ================================ */
+      showStatus("✅ Store created successfully! Redirecting...", "success");
+
+      // Small delay to show success message
+      setTimeout(() => {
+        window.location.replace("/seller/dashboard.html");
+      }, 1500);
     } catch (err) {
       console.error("Registration error:", err);
-      errorMsg.textContent =
-        err.message || "Failed to create store. Try again.";
+
+      let errorMessage = "Failed to create store. ";
+
+      if (err.code === "auth/email-already-in-use") {
+        errorMessage =
+          "Email already in use. Please use a different email or login.";
+      } else if (err.code === "auth/weak-password") {
+        errorMessage = "Password is too weak. Use at least 6 characters.";
+      } else if (err.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address.";
+      } else {
+        errorMessage += err.message || "Please try again.";
+      }
+
+      showStatus(errorMessage);
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
     }
   });
 }
