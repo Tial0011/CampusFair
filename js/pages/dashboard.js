@@ -1,5 +1,4 @@
 import { auth, db } from "../core/firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 import {
   collection,
   getDocs,
@@ -15,7 +14,7 @@ const app = document.getElementById("app");
 /* ===============================
    AUTH GUARD
 ================================ */
-onAuthStateChanged(auth, (user) => {
+auth.onAuthStateChanged((user) => {
   if (!user) {
     window.location.replace("/");
     return;
@@ -35,6 +34,17 @@ function renderLoadingUI() {
     </header>
     <div class="loading">Loading your dashboard...</div>
   `;
+}
+
+/* ===============================
+   SLUG FROM STORE NAME
+================================ */
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 /* ===============================
@@ -91,9 +101,7 @@ function renderBaseUI(storeLink) {
 
   document.getElementById("copyBtn").onclick = () => {
     navigator.clipboard.writeText(storeLink);
-    const btn = document.getElementById("copyBtn");
-    btn.textContent = "Copied ✓";
-    setTimeout(() => (btn.textContent = "Copy"), 1500);
+    document.getElementById("copyBtn").textContent = "Copied ✓";
   };
 }
 
@@ -102,7 +110,6 @@ function renderBaseUI(storeLink) {
 ================================ */
 async function fetchSellerProducts(uid) {
   const q = query(collection(db, "products"), where("sellerId", "==", uid));
-
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
@@ -128,12 +135,8 @@ function renderProducts(products) {
       <p class="price">₦${p.price}</p>
 
       <div class="dashboard-actions">
-        <a href="/seller/edit-product.html?id=${p.id}" class="edit-btn">
-          Edit
-        </a>
-        <button class="delete-btn" data-id="${p.id}">
-          Delete
-        </button>
+        <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
+        <button class="delete-btn" data-id="${p.id}">Delete</button>
       </div>
     `;
 
@@ -173,17 +176,8 @@ function setupDeleteButtons() {
 async function initDashboard(user) {
   try {
     const seller = await fetchSeller(user.uid);
-
-    if (!seller.storeSlug) {
-      app.innerHTML = `
-        <p style="padding:1rem;color:red">
-          Store slug missing. Please contact support.
-        </p>
-      `;
-      return;
-    }
-
-    const storeLink = `https://campusfair.netlify.app/s/${seller.storeSlug}`;
+    const slug = slugify(seller.storeName);
+    const storeLink = `https://campusfair.netlify.app/s/${slug}`;
 
     renderBaseUI(storeLink);
 
@@ -191,10 +185,6 @@ async function initDashboard(user) {
     renderProducts(products);
   } catch (err) {
     console.error(err);
-    app.innerHTML = `
-      <p style="color:red;padding:1rem">
-        Failed to load dashboard. Please contact support.
-      </p>
-    `;
+    app.innerHTML = "<p>Failed to load dashboard</p>";
   }
 }
