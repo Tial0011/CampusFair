@@ -26,6 +26,17 @@ onAuthStateChanged(auth, (user) => {
 });
 
 /* ===============================
+   SLUGIFY
+================================ */
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+/* ===============================
    CHECK STORE NAME UNIQUENESS
 ================================ */
 async function isStoreNameTaken(storeName) {
@@ -152,8 +163,12 @@ function setupRegister() {
          CREATE AUTH ACCOUNT
       ================================ */
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-
       const uid = cred.user.uid;
+
+      /* ===============================
+         CREATE SLUG
+      ================================ */
+      const storeSlug = slugify(storeName);
 
       /* ===============================
          CREATE SELLER DOCUMENT
@@ -162,7 +177,8 @@ function setupRegister() {
         sellerCode,
         ownerName,
         storeName,
-        storeNameLower: storeName.toLowerCase(), // 🔒 uniqueness
+        storeNameLower: storeName.toLowerCase(),
+        storeSlug, // ✅ permanent slug
         storeDescription,
         phone,
         email,
