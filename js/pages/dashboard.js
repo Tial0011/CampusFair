@@ -1,4 +1,5 @@
 import { auth, db } from "../core/firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 import {
   collection,
   getDocs,
@@ -14,7 +15,7 @@ const app = document.getElementById("app");
 /* ===============================
    AUTH GUARD
 ================================ */
-auth.onAuthStateChanged((user) => {
+onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.replace("/");
     return;
@@ -101,6 +102,7 @@ function renderBaseUI(storeLink) {
 ================================ */
 async function fetchSellerProducts(uid) {
   const q = query(collection(db, "products"), where("sellerId", "==", uid));
+
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
@@ -172,9 +174,13 @@ async function initDashboard(user) {
   try {
     const seller = await fetchSeller(user.uid);
 
-    // 🔒 USE STORED SLUG — DO NOT RECREATE
     if (!seller.storeSlug) {
-      throw new Error("Store slug missing");
+      app.innerHTML = `
+        <p style="padding:1rem;color:red">
+          Store slug missing. Please contact support.
+        </p>
+      `;
+      return;
     }
 
     const storeLink = `https://campusfair.netlify.app/s/${seller.storeSlug}`;
