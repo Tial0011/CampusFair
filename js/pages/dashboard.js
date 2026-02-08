@@ -62,7 +62,7 @@ async function fetchSeller(uid) {
 function renderBaseUI(storeLink) {
   app.innerHTML = `
     <header class="header">
-      <h2>Seller Dashboard</h2>
+      <h3>Seller Dashboard</h3>
 
       <div class="header-right">
         <a href="${storeLink}" target="_blank" class="seller-link">
