@@ -1,124 +1,133 @@
 import { db } from "../core/firebase.js";
 import {
   collection,
+  getDocs,
   query,
   where,
-  getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
 
-// get store name from /s/{storeName}
-const storeName = window.location.pathname.split("/s/")[1];
+/* ===============================
+   GET SLUG FROM URL
+================================ */
+const slug = window.location.pathname.split("/").pop();
 
-if (!storeName) {
-  app.innerHTML = "<p>Store not found.</p>";
-} else {
-  loadStore(storeName.toLowerCase());
+/* ===============================
+   SLUG GENERATOR (SAME AS DASHBOARD)
+================================ */
+function generateSlug(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 /* ===============================
-   LOAD STORE BY NAME
+   LOAD STORE BY SLUG
 ================================ */
-async function loadStore(storeNameLower) {
-  try {
-    const seller = await fetchSellerByName(storeNameLower);
-    renderStoreHeader(seller);
+async function loadStore() {
+  app.innerHTML = "<p class='loading'>Loading store...</p>";
 
-    const products = await fetchSellerProducts(seller.id);
-    renderProducts(products, seller);
+  try {
+    const sellersSnap = await getDocs(collection(db, "sellers"));
+
+    let seller = null;
+
+    sellersSnap.forEach((docSnap) => {
+      const data = docSnap.data();
+      const storeSlug = generateSlug(data.storeName);
+
+      if (storeSlug === slug) {
+        seller = { id: docSnap.id, ...data };
+      }
+    });
+
+    if (!seller) {
+      app.innerHTML = "<h2>Store not found</h2>";
+      return;
+    }
+
+    renderStoreHeader(seller);
+    loadProducts(seller.id);
   } catch (err) {
     console.error(err);
-    app.innerHTML = "<p>Store not found.</p>";
+    app.innerHTML = "<p>Failed to load store</p>";
   }
 }
 
 /* ===============================
-   FETCH SELLER
+   STORE HEADER
 ================================ */
-async function fetchSellerByName(storeNameLower) {
-  const q = query(
-    collection(db, "sellers"),
-    where("storeNameLower", "==", storeNameLower),
-  );
+function renderStoreHeader(seller) {
+  app.innerHTML = `
+    <header class="store-header">
+      <h1>${seller.storeName}</h1>
+      <p>${seller.storeDescription}</p>
+      <p class="contact">📞 ${seller.phone}</p>
+    </header>
 
-  const snap = await getDocs(q);
-
-  if (snap.empty) throw new Error("Seller not found");
-
-  const docSnap = snap.docs[0];
-  return { id: docSnap.id, ...docSnap.data() };
+    <section>
+      <h2>Products</h2>
+      <div id="products" class="products-grid">
+        <p class="loading">Loading products...</p>
+      </div>
+    </section>
+  `;
 }
 
 /* ===============================
-   FETCH PRODUCTS
+   LOAD PRODUCTS
 ================================ */
-async function fetchSellerProducts(sellerId) {
+async function loadProducts(sellerId) {
+  const productsBox = document.getElementById("products");
+
   const q = query(
     collection(db, "products"),
     where("sellerId", "==", sellerId),
   );
 
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
 
-/* ===============================
-   RENDER STORE
-================================ */
-function renderStoreHeader(seller) {
-  app.innerHTML = `
-    <header class="header">
-      <h1>${seller.storeName}</h1>
-      <a href="/" class="seller-link">Back to CampusFair</a>
-    </header>
-
-    <section>
-      <p>${seller.storeDescription}</p>
-    </section>
-
-    <section>
-      <h2>Products</h2>
-      <div id="products" class="products-grid"></div>
-    </section>
-  `;
-}
-
-/* ===============================
-   RENDER PRODUCTS
-================================ */
-function renderProducts(products, seller) {
-  const container = document.getElementById("products");
-
-  if (products.length === 0) {
-    container.innerHTML = "<p>No products yet.</p>";
+  if (snap.empty) {
+    productsBox.innerHTML = "<p>No products yet.</p>";
     return;
   }
 
-  products.forEach((p) => {
-    const div = document.createElement("div");
-    div.className = "product-card";
+  productsBox.innerHTML = "";
 
-    div.innerHTML = `
-      <img src="${p.imageUrl}" />
+  snap.forEach((docSnap) => {
+    const p = docSnap.data();
+
+    const card = document.createElement("div");
+    card.className = "product-card";
+
+    card.innerHTML = `
+      <img src="${p.imageUrl}" alt="${p.name}" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
-
-      <button onclick="messageSeller('${seller.phone}', '${p.name}', '${seller.storeName}')">
-        Message Seller
-      </button>
+      <a
+        href="https://wa.me/${sellerPhone(p)}"
+        target="_blank"
+        class="buy-btn"
+      >
+        Buy on WhatsApp
+      </a>
     `;
 
-    container.appendChild(div);
+    productsBox.appendChild(card);
   });
 }
 
 /* ===============================
-   WHATSAPP
+   FORMAT PHONE FOR WHATSAPP
 ================================ */
-window.messageSeller = function (phone, product, store) {
-  const text = encodeURIComponent(
-    `Hello, I’m interested in ${product} from ${store} on CampusFair`,
-  );
-  window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
-};
+function sellerPhone(p) {
+  return p.phone?.replace(/\D/g, "") || "";
+}
+
+/* ===============================
+   INIT
+================================ */
+loadStore();
