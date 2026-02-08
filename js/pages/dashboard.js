@@ -56,7 +56,6 @@ async function fetchSeller(uid) {
   try {
     const snap = await getDoc(doc(db, "sellers", uid));
 
-    // If seller doesn't exist, create one
     if (!snap.exists()) {
       const user = auth.currentUser;
       const sellerData = {
@@ -163,14 +162,16 @@ function renderProducts(products) {
     const card = document.createElement("div");
     card.className = "product-card";
 
-    // Add image error handling
     const imgSrc = p.imageUrl || "https://via.placeholder.com/300x200";
 
     card.innerHTML = `
       <img src="${imgSrc}" onerror="this.src='https://via.placeholder.com/300x200'"/>
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
-      <button class="delete-btn" data-id="${p.id}">Delete</button>
+      <div style="display: flex; gap: 8px; margin-top: 10px;">
+        <a href="/seller/edit-product.html?id=${p.id}" class="seller-btn" style="flex: 1; padding: 8px; text-align: center;">Edit</a>
+        <button class="delete-btn" data-id="${p.id}" style="flex: 1; padding: 8px;">Delete</button>
+      </div>
     `;
 
     box.appendChild(card);
