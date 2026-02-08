@@ -37,17 +37,6 @@ function renderLoadingUI() {
 }
 
 /* ===============================
-   SLUG FROM STORE NAME
-================================ */
-function slugify(name) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-/* ===============================
    FETCH SELLER
 ================================ */
 async function fetchSeller(uid) {
@@ -101,7 +90,9 @@ function renderBaseUI(storeLink) {
 
   document.getElementById("copyBtn").onclick = () => {
     navigator.clipboard.writeText(storeLink);
-    document.getElementById("copyBtn").textContent = "Copied ✓";
+    const btn = document.getElementById("copyBtn");
+    btn.textContent = "Copied ✓";
+    setTimeout(() => (btn.textContent = "Copy"), 1500);
   };
 }
 
@@ -135,8 +126,12 @@ function renderProducts(products) {
       <p class="price">₦${p.price}</p>
 
       <div class="dashboard-actions">
-        <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
-        <button class="delete-btn" data-id="${p.id}">Delete</button>
+        <a href="/seller/edit-product.html?id=${p.id}" class="edit-btn">
+          Edit
+        </a>
+        <button class="delete-btn" data-id="${p.id}">
+          Delete
+        </button>
       </div>
     `;
 
@@ -176,8 +171,13 @@ function setupDeleteButtons() {
 async function initDashboard(user) {
   try {
     const seller = await fetchSeller(user.uid);
-    const slug = slugify(seller.storeName);
-    const storeLink = `https://campusfair.netlify.app/s/${slug}`;
+
+    // 🔒 USE STORED SLUG — DO NOT RECREATE
+    if (!seller.storeSlug) {
+      throw new Error("Store slug missing");
+    }
+
+    const storeLink = `https://campusfair.netlify.app/s/${seller.storeSlug}`;
 
     renderBaseUI(storeLink);
 
@@ -185,6 +185,10 @@ async function initDashboard(user) {
     renderProducts(products);
   } catch (err) {
     console.error(err);
-    app.innerHTML = "<p>Failed to load dashboard</p>";
+    app.innerHTML = `
+      <p style="color:red;padding:1rem">
+        Failed to load dashboard. Please contact support.
+      </p>
+    `;
   }
 }
