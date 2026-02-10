@@ -295,7 +295,7 @@ function setupRegister() {
       // Small delay to show success message
       setTimeout(() => {
         window.location.replace("/seller/dashboard.html");
-      }, 1500);
+      }, 3000);
     } catch (err) {
       console.error("Registration error:", err);
 

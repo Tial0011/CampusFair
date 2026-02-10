@@ -7,8 +7,6 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  setDoc,
-  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const app = document.getElementById("app");
@@ -39,51 +37,21 @@ function renderLoadingUI() {
 }
 
 /* ===============================
-   SLUG FROM STORE NAME
-================================ */
-function slugify(name) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-/* ===============================
-   FETCH SELLER WITH RECOVERY
+   FETCH SELLER (with retries)
 ================================ */
 async function fetchSeller(uid) {
-  try {
+  for (let i = 0; i < 3; i++) {
     const snap = await getDoc(doc(db, "sellers", uid));
-
-    if (!snap.exists()) {
-      const user = auth.currentUser;
-      const sellerData = {
-        ownerName: "Store Owner",
-        storeName: user.email.split("@")[0] + "'s Store",
-        storeDescription: "Welcome to my store",
-        phone: "+2340000000000",
-        email: user.email,
-        createdAt: serverTimestamp(),
-        productCount: 0,
-        active: true,
-      };
-
-      await setDoc(doc(db, "sellers", uid), sellerData);
-      return sellerData;
-    }
-
-    return snap.data();
-  } catch (error) {
-    console.error("Error fetching seller:", error);
-    throw new Error("Could not load seller profile");
+    if (snap.exists()) return snap.data();
+    await new Promise((r) => setTimeout(r, 1000)); // wait 1s before retry
   }
+  throw new Error("Seller not found");
 }
 
 /* ===============================
    UI
 ================================ */
-function renderBaseUI(storeLink) {
+function renderBaseUI(storeLink, productCount) {
   app.innerHTML = `
     <header class="header">
       <h3>Seller Dashboard</h3>
@@ -111,7 +79,7 @@ function renderBaseUI(storeLink) {
     </section>
 
     <section>
-      <h2>My Products</h2>
+      <h2>My Products (${productCount})</h2>
       <div id="products">
         <p class="loading">Fetching products...</p>
       </div>
@@ -137,14 +105,9 @@ function renderBaseUI(storeLink) {
    PRODUCTS
 ================================ */
 async function fetchSellerProducts(uid) {
-  try {
-    const q = query(collection(db, "products"), where("sellerId", "==", uid));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    return [];
-  }
+  const q = query(collection(db, "products"), where("sellerId", "==", uid));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 function renderProducts(products) {
@@ -163,12 +126,12 @@ function renderProducts(products) {
     card.className = "product-card";
 
     card.innerHTML = `
-      <img src="${p.imageUrl}" />
+      <img src="${p.imageUrl}" alt="${p.name}" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
       <div class="dashboard-actions">
         <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
-        <button class="dashboard-actions-button" data-id="${p.id}">Delete</button>
+        <button class="delete-btn" data-id="${p.id}">Delete</button>
       </div>
     `;
 
@@ -195,10 +158,9 @@ function renderProducts(products) {
 async function initDashboard(user) {
   try {
     const seller = await fetchSeller(user.uid);
-    const slug = slugify(seller.storeName);
-    const storeLink = `https://campusfair.netlify.app/s/${slug}`;
+    const storeLink = `https://campusfair.netlify.app/s/${seller.storeSlug}`;
 
-    renderBaseUI(storeLink);
+    renderBaseUI(storeLink, seller.productCount);
 
     const products = await fetchSellerProducts(user.uid);
     renderProducts(products);
