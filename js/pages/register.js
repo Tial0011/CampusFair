@@ -59,38 +59,32 @@ function renderRegisterUI() {
       <p>Start selling on CampusFair</p>
 
       <form id="registerForm">
-
         <input
           type="text"
           id="sellerCode"
           placeholder="Seller Code (CF-001)"
           required
         />
-
         <p style="font-size:0.75rem;color:#64748b;margin-top:-6px">
           To get a seller code, contact <strong>+2347060577255</strong>
         </p>
 
         <input type="text" id="ownerName" placeholder="Your Full Name" required />
         <input type="text" id="storeName" placeholder="Store Name" required />
-
         <textarea
           id="storeDescription"
-          placeholder="Describe your business (what you sell, quality, delivery, etc)"
+          placeholder="Describe your business"
           rows="4"
           required
         ></textarea>
-
         <input
           type="tel"
           id="phone"
-          placeholder="WhatsApp Number (e.g. +2348012345678)"
+          placeholder="WhatsApp Number (+2348012345678)"
           required
         />
-
         <input type="email" id="email" placeholder="Email address" required />
         <input type="password" id="password" placeholder="Password" required />
-
         <button type="submit" id="submitBtn">Create Store</button>
       </form>
 
@@ -98,7 +92,6 @@ function renderRegisterUI() {
         Already have a store?
         <a href="/seller/login.html">Login</a>
       </p>
-
       <div id="statusMsg"></div>
     </div>
   `;
@@ -118,8 +111,6 @@ function showStatus(message, type = "error") {
 ================================ */
 async function verifySellerDocument(uid) {
   console.log("Verifying seller document for UID:", uid);
-
-  // Try multiple times with delay
   for (let i = 0; i < 5; i++) {
     try {
       const sellerDoc = await getDoc(doc(db, "sellers", uid));
@@ -129,18 +120,10 @@ async function verifySellerDocument(uid) {
       }
       console.log("Attempt", i + 1, ": Seller document not found yet");
     } catch (error) {
-      console.log(
-        "Attempt",
-        i + 1,
-        ": Error checking document:",
-        error.message,
-      );
+      console.log("Attempt", i + 1, "Error:", error.message);
     }
-
-    // Wait 1 second before trying again
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-
   return false;
 }
 
@@ -155,7 +138,6 @@ function setupRegister() {
     const submitBtn = document.getElementById("submitBtn");
     const originalText = submitBtn.textContent;
 
-    // Clear previous messages
     showStatus("", "info");
     submitBtn.disabled = true;
     submitBtn.textContent = "Creating store...";
@@ -170,7 +152,6 @@ function setupRegister() {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
-    // Validation
     if (!sellerCode.startsWith("CF-")) {
       showStatus("Seller code must start with 'CF-' (e.g., CF-001)");
       submitBtn.disabled = false;
@@ -186,59 +167,42 @@ function setupRegister() {
     }
 
     try {
-      console.log("Starting registration process...");
+      console.log("Starting registration...");
 
-      /* ===============================
-         STORE NAME CHECK
-      ================================ */
-      showStatus("Checking store name availability...", "info");
+      showStatus("Checking store name...", "info");
       const taken = await isStoreNameTaken(storeName);
       if (taken) {
-        showStatus("Store name already exists. Please choose another.");
+        showStatus("Store name taken. Choose another.");
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
         return;
       }
 
-      /* ===============================
-         VALIDATE SELLER CODE
-      ================================ */
       showStatus("Validating seller code...", "info");
       const codeRef = doc(db, "meta", "sellerCode");
       const codeSnap = await getDoc(codeRef);
 
       if (!codeSnap.exists()) {
-        showStatus("Seller code system unavailable. Please contact support.");
+        showStatus("Seller code system unavailable.");
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
         return;
       }
 
       const { currentCode } = codeSnap.data();
-
       if (sellerCode !== currentCode) {
-        showStatus("Invalid seller code. Please check and try again.");
+        showStatus("Invalid seller code.");
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
         return;
       }
 
-      /* ===============================
-         CREATE AUTH ACCOUNT
-      ================================ */
       showStatus("Creating account...", "info");
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
-      console.log("✅ Auth account created. UID:", uid);
+      console.log("✅ Auth created. UID:", uid);
 
-      /* ===============================
-         CREATE SLUG
-      ================================ */
       const storeSlug = slugify(storeName);
-
-      /* ===============================
-         CREATE SELLER DOCUMENT
-      ================================ */
       showStatus("Creating seller profile...", "info");
 
       const sellerData = {
@@ -254,62 +218,63 @@ function setupRegister() {
         updatedAt: serverTimestamp(),
         productCount: 0,
         active: true,
-        uid: uid, // Also store UID in the document for easy reference
+        uid: uid,
       };
 
-      console.log("Creating seller document with data:", sellerData);
-
+      console.log("Creating seller document...");
       try {
         await setDoc(doc(db, "sellers", uid), sellerData);
         console.log("✅ Seller document created");
       } catch (firestoreError) {
-        console.error("Firestore error:", firestoreError);
-        // If Firestore fails, delete the auth account to keep things clean
-        await auth.currentUser.delete();
-        showStatus("Failed to create store profile. Please try again.");
+        console.error("Firestore error:", {
+          code: firestoreError.code,
+          message: firestoreError.message,
+        });
+
+        if (firestoreError.code === "permission-denied") {
+          showStatus("Permission denied. Check Firestore rules.");
+        } else {
+          showStatus("Failed to create store profile.");
+        }
+
+        try {
+          await auth.currentUser.delete();
+          console.log("Cleaned up auth account");
+        } catch (deleteError) {
+          console.error("Failed to delete auth:", deleteError);
+        }
+
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
         return;
       }
 
-      /* ===============================
-         VERIFY DOCUMENT WAS CREATED
-      ================================ */
-      showStatus("Verifying store creation...", "info");
+      showStatus("Verifying...", "info");
       const verified = await verifySellerDocument(uid);
 
       if (!verified) {
-        showStatus(
-          "Store created but verification failed. Please try logging in.",
-        );
+        showStatus("Verification failed. Try logging in.");
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
         return;
       }
 
-      /* ===============================
-         SUCCESS - REDIRECT
-      ================================ */
-      showStatus("✅ Store created successfully! Redirecting...", "success");
-
-      // Small delay to show success message
+      showStatus("✅ Store created! Redirecting...", "success");
       setTimeout(() => {
         window.location.replace("/seller/dashboard.html");
-      }, 5000);
+      }, 2000);
     } catch (err) {
-      console.error("Registration error:", err);
+      console.error("Registration error:", err.code, err.message);
 
-      let errorMessage = "Failed to create store. ";
-
+      let errorMessage = "Registration failed. ";
       if (err.code === "auth/email-already-in-use") {
-        errorMessage =
-          "Email already in use. Please use a different email or login.";
+        errorMessage = "Email already in use.";
       } else if (err.code === "auth/weak-password") {
-        errorMessage = "Password is too weak. Use at least 6 characters.";
+        errorMessage = "Password too weak (min 6 chars).";
       } else if (err.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address.";
+        errorMessage = "Invalid email.";
       } else {
-        errorMessage += err.message || "Please try again.";
+        errorMessage += err.message || "Try again.";
       }
 
       showStatus(errorMessage);
