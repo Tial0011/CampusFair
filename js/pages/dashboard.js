@@ -50,27 +50,16 @@ function slugify(name) {
 }
 
 /* ===============================
-   FETCH SELLER WITH RECOVERY
+   FETCH SELLER WITH RECOVERY - FIXED
 ================================ */
 async function fetchSeller(uid) {
   try {
     const snap = await getDoc(doc(db, "sellers", uid));
 
     if (!snap.exists()) {
-      const user = auth.currentUser;
-      const sellerData = {
-        ownerName: "Store Owner",
-        storeName: user.email.split("@")[0] + "'s Store",
-        storeDescription: "Welcome to my store",
-        phone: "+2340000000000",
-        email: user.email,
-        createdAt: serverTimestamp(),
-        productCount: 0,
-        active: true,
-      };
-
-      await setDoc(doc(db, "sellers", uid), sellerData);
-      return sellerData;
+      console.error("Seller document not found for UID:", uid);
+      // Don't try to create document here - redirect to registration
+      throw new Error("Seller profile not found. Please register first.");
     }
 
     return snap.data();
@@ -83,11 +72,10 @@ async function fetchSeller(uid) {
 /* ===============================
    UI
 ================================ */
-function renderBaseUI(storeLink) {
+function renderBaseUI(storeLink, seller) {
   app.innerHTML = `
     <header class="header">
-      <h3>Seller Dashboard</h3>
-
+      <h3>${seller.storeName || "Seller Dashboard"}</h3>
       <div class="header-right">
         <a href="${storeLink}" target="_blank" class="seller-link">
           View Store
@@ -163,12 +151,12 @@ function renderProducts(products) {
     card.className = "product-card";
 
     card.innerHTML = `
-      <img src="${p.imageUrl}" />
+      <img src="${p.imageUrl || "/placeholder.png"}" onerror="this.src='/placeholder.png'" />
       <h3>${p.name}</h3>
       <p class="price">₦${p.price}</p>
       <div class="dashboard-actions">
         <a href="/seller/edit-product.html?id=${p.id}">Edit</a>
-        <button class="dashboard-actions-button" data-id="${p.id}">Delete</button>
+        <button class="delete-btn" data-id="${p.id}">Delete</button>
       </div>
     `;
 
@@ -190,30 +178,53 @@ function renderProducts(products) {
 }
 
 /* ===============================
-   INIT
+   INIT - FIXED
 ================================ */
 async function initDashboard(user) {
   try {
+    console.log("Loading dashboard for user:", user.uid);
+
     const seller = await fetchSeller(user.uid);
+    console.log("Seller data loaded:", seller);
+
     const slug = slugify(seller.storeName);
     const storeLink = `https://campusfair.netlify.app/s/${slug}`;
 
-    renderBaseUI(storeLink);
+    renderBaseUI(storeLink, seller);
 
     const products = await fetchSellerProducts(user.uid);
     renderProducts(products);
   } catch (err) {
-    console.error(err);
+    console.error("Dashboard init error:", err);
     app.innerHTML = `
       <header class="header">
         <h2>Seller Dashboard</h2>
       </header>
       <div style="padding: 20px; text-align: center;">
-        <p>Failed to load dashboard</p>
-        <button onclick="window.location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px;">
-          Retry
-        </button>
+        <p>${err.message || "Failed to load dashboard"}</p>
+        <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+          If you just registered, try logging out and back in.
+        </p>
+        <div style="margin-top: 20px;">
+          <button onclick="window.location.reload()" class="retry-btn">
+            Retry
+          </button>
+          <button onclick="auth.signOut().then(() => window.location.replace('/'))" class="logout-btn">
+            Logout
+          </button>
+        </div>
       </div>
+      <style>
+        .retry-btn, .logout-btn {
+          margin: 0 5px;
+          padding: 8px 16px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .retry-btn { background: #3b82f6; color: white; }
+        .logout-btn { background: #ef4444; color: white; }
+      </style>
     `;
   }
 }
