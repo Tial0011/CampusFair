@@ -2,6 +2,7 @@ import { auth, db } from "../core/firebase.js";
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  deleteUser,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 import {
   doc,
@@ -44,7 +45,6 @@ async function isStoreNameTaken(storeName) {
     collection(db, "sellers"),
     where("storeNameLower", "==", storeName.toLowerCase()),
   );
-
   const snap = await getDocs(q);
   return !snap.empty;
 }
@@ -59,30 +59,15 @@ function renderRegisterUI() {
       <p>Start selling on CampusFair</p>
 
       <form id="registerForm">
-        <input
-          type="text"
-          id="sellerCode"
-          placeholder="Seller Code (CF-001)"
-          required
-        />
+        <input type="text" id="sellerCode" placeholder="Seller Code (CF-001)" required />
         <p style="font-size:0.75rem;color:#64748b;margin-top:-6px">
           To get a seller code, contact <strong>+2347060577255</strong>
         </p>
 
         <input type="text" id="ownerName" placeholder="Your Full Name" required />
         <input type="text" id="storeName" placeholder="Store Name" required />
-        <textarea
-          id="storeDescription"
-          placeholder="Describe your business"
-          rows="4"
-          required
-        ></textarea>
-        <input
-          type="tel"
-          id="phone"
-          placeholder="WhatsApp Number (+2348012345678)"
-          required
-        />
+        <textarea id="storeDescription" placeholder="Describe your business" rows="4" required></textarea>
+        <input type="tel" id="phone" placeholder="WhatsApp Number (+2348012345678)" required />
         <input type="email" id="email" placeholder="Email address" required />
         <input type="password" id="password" placeholder="Password" required />
         <button type="submit" id="submitBtn">Create Store</button>
@@ -107,7 +92,7 @@ function showStatus(message, type = "error") {
 }
 
 /* ===============================
-   VERIFY SELLER DOCUMENT WAS CREATED
+   VERIFY SELLER DOCUMENT
 ================================ */
 async function verifySellerDocument(uid) {
   console.log("Verifying seller document for UID:", uid);
@@ -226,10 +211,7 @@ function setupRegister() {
         await setDoc(doc(db, "sellers", uid), sellerData);
         console.log("✅ Seller document created");
       } catch (firestoreError) {
-        console.error("Firestore error:", {
-          code: firestoreError.code,
-          message: firestoreError.message,
-        });
+        console.error("Firestore error:", firestoreError);
 
         if (firestoreError.code === "permission-denied") {
           showStatus("Permission denied. Check Firestore rules.");
@@ -238,7 +220,7 @@ function setupRegister() {
         }
 
         try {
-          await auth.currentUser.delete();
+          await deleteUser(auth.currentUser);
           console.log("Cleaned up auth account");
         } catch (deleteError) {
           console.error("Failed to delete auth:", deleteError);
@@ -264,7 +246,7 @@ function setupRegister() {
         window.location.replace("/seller/dashboard.html");
       }, 2000);
     } catch (err) {
-      console.error("Registration error:", err.code, err.message);
+      console.error("Registration error:", err);
 
       let errorMessage = "Registration failed. ";
       if (err.code === "auth/email-already-in-use") {
