@@ -7,21 +7,22 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  setDoc,
-  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+import {
+  onAuthStateChanged,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 
 const app = document.getElementById("app");
 
 /* ===============================
    AUTH GUARD
 ================================ */
-auth.onAuthStateChanged(async (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.replace("/");
     return;
   }
-
   renderLoadingUI();
   await initDashboard(user);
 });
@@ -50,18 +51,15 @@ function slugify(name) {
 }
 
 /* ===============================
-   FETCH SELLER WITH RECOVERY - FIXED
+   FETCH SELLER
 ================================ */
 async function fetchSeller(uid) {
   try {
     const snap = await getDoc(doc(db, "sellers", uid));
-
     if (!snap.exists()) {
       console.error("Seller document not found for UID:", uid);
-      // Don't try to create document here - redirect to registration
       throw new Error("Seller profile not found. Please register first.");
     }
-
     return snap.data();
   } catch (error) {
     console.error("Error fetching seller:", error);
@@ -77,9 +75,7 @@ function renderBaseUI(storeLink, seller) {
     <header class="header">
       <h3>${seller.storeName || "Seller Dashboard"}</h3>
       <div class="header-right">
-        <a href="${storeLink}" target="_blank" class="seller-link">
-          View Store
-        </a>
+        <a href="${storeLink}" target="_blank" class="seller-link">View Store</a>
         <button id="logoutBtn" class="seller-btn">Logout</button>
       </div>
     </header>
@@ -93,9 +89,7 @@ function renderBaseUI(storeLink, seller) {
     </section>
 
     <section>
-      <a href="/seller/add-product.html" class="seller-btn">
-        + Add New Product
-      </a>
+      <a href="/seller/add-product.html" class="seller-btn">+ Add New Product</a>
     </section>
 
     <section>
@@ -107,7 +101,7 @@ function renderBaseUI(storeLink, seller) {
   `;
 
   document.getElementById("logoutBtn").onclick = async () => {
-    await auth.signOut();
+    await signOut(auth);
     window.location.replace("/");
   };
 
@@ -178,7 +172,7 @@ function renderProducts(products) {
 }
 
 /* ===============================
-   INIT - FIXED
+   INIT
 ================================ */
 async function initDashboard(user) {
   try {
@@ -206,12 +200,8 @@ async function initDashboard(user) {
           If you just registered, try logging out and back in.
         </p>
         <div style="margin-top: 20px;">
-          <button onclick="window.location.reload()" class="retry-btn">
-            Retry
-          </button>
-          <button onclick="auth.signOut().then(() => window.location.replace('/'))" class="logout-btn">
-            Logout
-          </button>
+          <button onclick="window.location.reload()" class="retry-btn">Retry</button>
+          <button onclick="signOut(auth).then(() => window.location.replace('/'))" class="logout-btn">Logout</button>
         </div>
       </div>
       <style>
