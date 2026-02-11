@@ -51,6 +51,39 @@ async function isStoreNameTaken(storeName) {
 }
 
 /* ===============================
+   RENDER REGISTER UI
+================================ */
+function renderRegisterUI() {
+  app.innerHTML = `
+    <div class="auth-container">
+      <h1>Create Your Store</h1>
+      <p>Start selling on CampusFair</p>
+
+      <form id="registerForm">
+        <input type="text" id="sellerCode" placeholder="Seller Code (CF-001)" required />
+        <p style="font-size:0.75rem;color:#64748b;margin-top:-6px">
+          To get a seller code, contact <strong>+2347060577255</strong>
+        </p>
+
+        <input type="text" id="ownerName" placeholder="Your Full Name" required />
+        <input type="text" id="storeName" placeholder="Store Name" required />
+        <textarea id="storeDescription" placeholder="Describe your business" rows="4" required></textarea>
+        <input type="tel" id="phone" placeholder="WhatsApp Number (+2348012345678)" required />
+        <input type="email" id="email" placeholder="Email address" required />
+        <input type="password" id="password" placeholder="Password" required />
+        <button type="submit" id="submitBtn">Create Store</button>
+      </form>
+
+      <p class="auth-footer">
+        Already have a store?
+        <a href="/seller/login.html">Login</a>
+      </p>
+      <div id="statusMsg"></div>
+    </div>
+  `;
+}
+
+/* ===============================
    SHOW STATUS MESSAGE
 ================================ */
 function showStatus(message, type = "error") {
