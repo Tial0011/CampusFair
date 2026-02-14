@@ -12,6 +12,48 @@ import {
 
 const app = document.getElementById("app");
 
+let allProducts = [];
+let orderedProducts = [];
+let currentPage = 1;
+const PAGE_SIZE = 10;
+
+/* ===============================
+   INJECT CSS
+================================ */
+const style = document.createElement("style");
+style.innerHTML = `
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 30px 0;
+  }
+
+  .pagination button {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+  }
+
+  .pagination button.active {
+    background: #000;
+    color: #fff;
+  }
+
+  .pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .product-card img {
+    background: #f2f2f2;
+    min-height: 180px;
+    object-fit: cover;
+  }
+`;
+document.head.appendChild(style);
+
 /* ===============================
    BASE UI
 ================================ */
@@ -23,12 +65,8 @@ function renderBaseUI() {
       </div>
 
       <div class="header-right">
-        <a id="sellerLogin" class="seller-link">
-          Seller Login
-        </a>
-        <a id="sellerRegister" class="seller-btn">
-          Become a Seller
-        </a>
+        <a id="sellerLogin" class="seller-link">Seller Login</a>
+        <a id="sellerRegister" class="seller-btn">Become a Seller</a>
       </div>
 
       <input
@@ -41,17 +79,14 @@ function renderBaseUI() {
     <section>
       <h2>Latest Products</h2>
 
-      <!-- LOADING STATE -->
       <div id="products" class="products-grid">
-        <div class="loading">
-          <div class="spinner"></div>
-          <span>Loading products...</span>
-        </div>
+        <p>Loading products...</p>
       </div>
+
+      <div id="pagination" class="pagination"></div>
     </section>
   `;
 
-  // 🔒 Hard navigation (prevents back-button auth issue)
   document.getElementById("sellerLogin").onclick = () => {
     window.location.replace("/seller/login.html");
   };
@@ -62,33 +97,74 @@ function renderBaseUI() {
 }
 
 /* ===============================
-   FETCH PRODUCTS + SELLERS
+   FETCH ALL DATA (FAST)
 ================================ */
-async function fetchProducts() {
+async function fetchAllProducts() {
   const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
   const snapshot = await getDocs(q);
 
-  const products = [];
+  const products = snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
 
-  for (const docSnap of snapshot.docs) {
-    const product = { id: docSnap.id, ...docSnap.data() };
+  const sellerIds = [...new Set(products.map((p) => p.sellerId))];
+  const sellerPromises = sellerIds.map((id) => getDoc(doc(db, "sellers", id)));
 
-    const sellerRef = doc(db, "sellers", product.sellerId);
-    const sellerSnap = await getDoc(sellerRef);
+  const sellerSnaps = await Promise.all(sellerPromises);
 
-    if (sellerSnap.exists()) {
-      const seller = sellerSnap.data();
-      product.storeName = seller.storeName;
-      product.sellerPhone = seller.phone;
-    } else {
-      product.storeName = "Unknown Store";
-      product.sellerPhone = "";
+  const sellerMap = {};
+  sellerSnaps.forEach((snap, i) => {
+    if (snap.exists()) {
+      sellerMap[sellerIds[i]] = snap.data();
     }
+  });
 
-    products.push(product);
-  }
+  products.forEach((p) => {
+    const seller = sellerMap[p.sellerId];
+    p.storeName = seller?.storeName || "Unknown Store";
+    p.sellerPhone = seller?.phone || "";
+  });
 
   return products;
+}
+
+/* ===============================
+   FAIR GLOBAL ORDER (NO DUPES)
+================================ */
+function buildFairOrder(products) {
+  const bySeller = {};
+
+  products.forEach((p) => {
+    if (!bySeller[p.sellerId]) bySeller[p.sellerId] = [];
+    bySeller[p.sellerId].push(p);
+  });
+
+  const sellers = Object.keys(bySeller);
+  const result = [];
+  let added = true;
+
+  // round-robin
+  while (added) {
+    added = false;
+    for (const s of sellers) {
+      if (bySeller[s].length > 0) {
+        result.push(bySeller[s].shift());
+        added = true;
+      }
+    }
+  }
+
+  return result;
+}
+
+/* ===============================
+   PAGINATION LOGIC
+================================ */
+function getPageProducts(list, page) {
+  const start = (page - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  return list.slice(start, end);
 }
 
 /* ===============================
@@ -99,7 +175,7 @@ function renderProducts(products) {
   container.innerHTML = "";
 
   if (products.length === 0) {
-    container.innerHTML = "<p>No products yet.</p>";
+    container.innerHTML = "<p>No products found.</p>";
     return;
   }
 
@@ -118,16 +194,12 @@ function renderProducts(products) {
     const storeLink = `/store.html?sellerId=${p.sellerId}`;
 
     card.innerHTML = `
-      <img src="${p.imageUrl}" alt="${p.name}" />
-
+      <img src="${p.imageUrl}" alt="${p.name}" loading="lazy" />
       <h3>${p.name}</h3>
-
       <p class="store-name">
         Sold by <a href="${storeLink}">${p.storeName}</a>
       </p>
-
       <p class="price">₦${p.price}</p>
-
       <button ${!p.sellerPhone ? "disabled" : ""}>
         Order on WhatsApp
       </button>
@@ -144,19 +216,67 @@ function renderProducts(products) {
 }
 
 /* ===============================
-   SEARCH
+   RENDER PAGINATION
 ================================ */
-function setupSearch(allProducts) {
+function renderPagination(list) {
+  const totalPages = Math.ceil(list.length / PAGE_SIZE);
+  const container = document.getElementById("pagination");
+  container.innerHTML = "";
+
+  if (totalPages <= 1) return;
+
+  const prevBtn = document.createElement("button");
+  prevBtn.textContent = "Prev";
+  prevBtn.disabled = currentPage === 1;
+  prevBtn.onclick = () => goToPage(currentPage - 1, list);
+  container.appendChild(prevBtn);
+
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement("button");
+    btn.textContent = i;
+    if (i === currentPage) btn.classList.add("active");
+    btn.onclick = () => goToPage(i, list);
+    container.appendChild(btn);
+  }
+
+  const nextBtn = document.createElement("button");
+  nextBtn.textContent = "Next";
+  nextBtn.disabled = currentPage === totalPages;
+  nextBtn.onclick = () => goToPage(currentPage + 1, list);
+  container.appendChild(nextBtn);
+}
+
+/* ===============================
+   NAVIGATION
+================================ */
+function goToPage(page, list = orderedProducts) {
+  currentPage = page;
+  const pageProducts = getPageProducts(list, page);
+  renderProducts(pageProducts);
+  renderPagination(list);
+}
+
+/* ===============================
+   SEARCH (ALL DATA)
+================================ */
+function setupSearch() {
   const input = document.getElementById("searchInput");
 
   input.addEventListener("input", () => {
     const term = input.value.toLowerCase();
 
-    const filtered = allProducts.filter((p) =>
+    if (!term) {
+      currentPage = 1;
+      goToPage(1, orderedProducts);
+      return;
+    }
+
+    const filtered = orderedProducts.filter((p) =>
       `${p.name} ${p.description || ""}`.toLowerCase().includes(term),
     );
 
-    renderProducts(filtered);
+    currentPage = 1;
+    goToPage(1, filtered);
   });
 }
 
@@ -164,15 +284,14 @@ function setupSearch(allProducts) {
    INIT
 ================================ */
 async function init() {
-  // 🔥 SHOW UI + SPINNER FIRST
   renderBaseUI();
 
   try {
-    const products = await fetchProducts();
+    allProducts = await fetchAllProducts();
+    orderedProducts = buildFairOrder(allProducts);
 
-    // 🔥 REPLACE SPINNER WITH PRODUCTS
-    renderProducts(products);
-    setupSearch(products);
+    goToPage(1, orderedProducts);
+    setupSearch();
   } catch (err) {
     console.error(err);
     app.innerHTML = "<p>Failed to load products.</p>";
