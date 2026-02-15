@@ -407,7 +407,12 @@ section h2 {
   border-radius: 10px;
   margin-bottom: 0.5rem;
 }
-.loading {
+.load {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
   padding: 1.2rem;
   font-size: 0.85rem;
   color: var(--muted);
@@ -427,7 +432,7 @@ section h2 {
   }
 }
 
-.spinner {
+.spin {
   width: 18px;
   height: 18px;
   border: 2px solid #e5e7eb;
