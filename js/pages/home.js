@@ -78,9 +78,11 @@ function renderBaseUI() {
 
     <section>
       <h2>Latest Products</h2>
-
       <div id="products" class="products-grid">
-        <p>Loading products...</p>
+        <div class="load">
+          <div class="spin"></div>
+          <span>Loading products...</span>
+        </div>
       </div>
 
       <div id="pagination" class="pagination"></div>
