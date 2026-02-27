@@ -39,10 +39,22 @@ if (!slug) {
 }
 
 /* ===============================
+   LOADING UI
+================================ */
+function renderLoading() {
+  app.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Loading store...</p>
+    </div>
+  `;
+}
+
+/* ===============================
    LOAD STORE BY SLUG
 ================================ */
 async function loadStoreBySlug() {
-  app.innerHTML = "<p>Loading store...</p>";
+  renderLoading();
 
   const sellersSnap = await getDocs(collection(db, "sellers"));
   let seller = null;
