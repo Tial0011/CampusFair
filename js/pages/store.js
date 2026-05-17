@@ -18,6 +18,15 @@ let CART = [];
 let SELLER = null;
 
 /* ===============================
+   SEARCH + PAGINATION STATE
+================================ */
+let ALL_PRODUCTS = [];
+let FILTERED_PRODUCTS = [];
+
+let currentPage = 1;
+const PRODUCTS_PER_PAGE = 8;
+
+/* ===============================
    INIT
 ================================ */
 if (!sellerId) {
@@ -37,6 +46,7 @@ async function loadStore() {
 
   const products = await fetchSellerProducts();
   renderProducts(products);
+
   renderCartUI();
 }
 
@@ -46,7 +56,11 @@ async function loadStore() {
 async function fetchSeller() {
   const ref = doc(db, "sellers", sellerId);
   const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("Seller not found");
+
+  if (!snap.exists()) {
+    throw new Error("Seller not found");
+  }
+
   return snap.data();
 }
 
@@ -60,7 +74,11 @@ async function fetchSellerProducts() {
   );
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
 }
 
 /* ===============================
@@ -77,7 +95,10 @@ function renderStoreHeader(seller) {
         <button id="openCart" class="seller-btn">
           Cart (<span id="cartCount">0</span>)
         </button>
-        <a href="/" class="seller-link">Back</a>
+
+        <a href="/" class="seller-link">
+          Back
+        </a>
       </div>
     </header>
 
@@ -85,14 +106,32 @@ function renderStoreHeader(seller) {
       <div class="store-header">
         <div>
           <p class="store-name">${seller.storeName}</p>
-          <p class="store-desc">${seller.storeDescription || ""}</p>
+
+          <p class="store-desc">
+            ${seller.storeDescription || ""}
+          </p>
         </div>
       </div>
     </section>
 
     <section>
       <h2>Products</h2>
+
+      <!-- SEARCH -->
+      <div class="search-box">
+        <input
+          type="text"
+          id="productSearch"
+          class="search-input"
+          placeholder="Search products..."
+        />
+      </div>
+
+      <!-- PRODUCTS -->
       <div id="products" class="products-grid"></div>
+
+      <!-- PAGINATION -->
+      <div id="pagination" class="pagination"></div>
     </section>
   `;
 }
@@ -101,22 +140,123 @@ function renderStoreHeader(seller) {
    PRODUCTS
 ================================ */
 function renderProducts(products) {
-  const container = document.getElementById("products");
+  ALL_PRODUCTS = products;
+  FILTERED_PRODUCTS = products;
 
-  products.forEach((p) => {
+  const searchInput = document.getElementById("productSearch");
+
+  searchInput.addEventListener("input", (e) => {
+    const value = e.target.value.toLowerCase().trim();
+
+    FILTERED_PRODUCTS = ALL_PRODUCTS.filter((p) =>
+      p.name.toLowerCase().includes(value),
+    );
+
+    currentPage = 1;
+
+    renderProductPage();
+  });
+
+  renderProductPage();
+}
+
+function renderProductPage() {
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+
+  if (!FILTERED_PRODUCTS.length) {
+    container.innerHTML = "<p>No products found.</p>";
+
+    document.getElementById("pagination").innerHTML = "";
+
+    return;
+  }
+
+  const start = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const end = start + PRODUCTS_PER_PAGE;
+
+  const paginatedProducts = FILTERED_PRODUCTS.slice(start, end);
+
+  paginatedProducts.forEach((p) => {
     const card = document.createElement("div");
+
     card.className = "product-card";
 
     card.innerHTML = `
       <img src="${p.imageUrl}" />
+
       <h3>${p.name}</h3>
+
       <p class="price">₦${p.price}</p>
+
       <button>Add to Cart</button>
     `;
 
     card.querySelector("button").onclick = () => addToCart(p);
+
     container.appendChild(card);
   });
+
+  renderPagination();
+}
+
+/* ===============================
+   PAGINATION
+================================ */
+function renderPagination() {
+  const pagination = document.getElementById("pagination");
+
+  pagination.innerHTML = "";
+
+  const totalPages = Math.ceil(FILTERED_PRODUCTS.length / PRODUCTS_PER_PAGE);
+
+  if (totalPages <= 1) return;
+
+  /* PREV BUTTON */
+  const prevBtn = document.createElement("button");
+
+  prevBtn.textContent = "← Prev";
+
+  prevBtn.disabled = currentPage === 1;
+
+  prevBtn.onclick = () => {
+    currentPage--;
+    renderProductPage();
+  };
+
+  pagination.appendChild(prevBtn);
+
+  /* PAGE NUMBERS */
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement("button");
+
+    btn.textContent = i;
+
+    if (i === currentPage) {
+      btn.classList.add("active");
+    }
+
+    btn.onclick = () => {
+      currentPage = i;
+      renderProductPage();
+    };
+
+    pagination.appendChild(btn);
+  }
+
+  /* NEXT BUTTON */
+  const nextBtn = document.createElement("button");
+
+  nextBtn.textContent = "Next →";
+
+  nextBtn.disabled = currentPage === totalPages;
+
+  nextBtn.onclick = () => {
+    currentPage++;
+    renderProductPage();
+  };
+
+  pagination.appendChild(nextBtn);
 }
 
 /* ===============================
@@ -128,7 +268,10 @@ function addToCart(product) {
   if (item) {
     item.qty += 1;
   } else {
-    CART.push({ ...product, qty: 1 });
+    CART.push({
+      ...product,
+      qty: 1,
+    });
   }
 
   updateCartUI();
@@ -136,7 +279,9 @@ function addToCart(product) {
 
 function increaseQty(id) {
   const item = CART.find((p) => p.id === id);
+
   item.qty += 1;
+
   updateCartUI();
 }
 
@@ -159,10 +304,12 @@ function updateCartUI() {
   );
 
   const list = document.getElementById("cartItems");
+
   list.innerHTML = "";
 
   CART.forEach((p) => {
     const row = document.createElement("div");
+
     row.className = "cart-item";
 
     row.innerHTML = `
@@ -170,7 +317,9 @@ function updateCartUI() {
 
       <div class="cart-controls">
         <button onclick="window.decreaseQty('${p.id}')">−</button>
+
         <strong>${p.qty}</strong>
+
         <button onclick="window.increaseQty('${p.id}')">+</button>
       </div>
 
@@ -190,11 +339,13 @@ window.decreaseQty = decreaseQty;
 ================================ */
 function renderCartUI() {
   const cart = document.createElement("div");
+
   cart.id = "cartPanel";
 
   cart.innerHTML = `
     <div class="cart-header">
       <h3>Your Cart</h3>
+
       <button id="closeCart">✕</button>
     </div>
 
@@ -207,11 +358,13 @@ function renderCartUI() {
 
   document.body.appendChild(cart);
 
-  document.getElementById("openCart").onclick = () =>
+  document.getElementById("openCart").onclick = () => {
     cart.classList.add("show");
+  };
 
-  document.getElementById("closeCart").onclick = () =>
+  document.getElementById("closeCart").onclick = () => {
     cart.classList.remove("show");
+  };
 
   document.getElementById("checkoutBtn").onclick = checkout;
 }
@@ -220,7 +373,9 @@ function renderCartUI() {
    CHECKOUT
 ================================ */
 function checkout() {
-  if (!CART.length) return alert("Cart is empty");
+  if (!CART.length) {
+    return alert("Cart is empty");
+  }
 
   let msg = "Hello, I’d like to order:\n\n";
 
