@@ -81,7 +81,7 @@ function renderBaseUI() {
       <div id="products" class="products-grid">
         <div class="load">
           <div class="spin"></div>
-          <span>Loading products...</span>
+          <span>Loading products (Please be Patient)...</span>
         </div>
       </div>
 

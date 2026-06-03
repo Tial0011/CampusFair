@@ -52,7 +52,7 @@ function renderLoading() {
   app.innerHTML = `
     <div class="loading">
       <div class="spinner"></div>
-      <p>Loading store...</p>
+      <p>Loading(Be Patient please)...</p>
     </div>
   `;
 }
