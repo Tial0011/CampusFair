@@ -1,5 +1,3 @@
-// js/pages/store-slug.js
-
 import { db } from "../core/firebase.js";
 import {
   collection,
@@ -17,6 +15,15 @@ const slug = window.location.pathname.split("/").filter(Boolean).pop();
 
 let CART = [];
 let SELLER = null;
+
+/* ===============================
+   SEARCH + PAGINATION STATE
+================================ */
+let ALL_PRODUCTS = [];
+let FILTERED_PRODUCTS = [];
+
+let currentPage = 1;
+const PRODUCTS_PER_PAGE = 8;
 
 /* ===============================
    SLUGIFY
@@ -76,6 +83,7 @@ async function loadStoreBySlug() {
   renderStoreHeader(seller);
 
   const products = await fetchSellerProducts(seller.id);
+
   renderProducts(products);
   renderCartUI();
 }
@@ -94,7 +102,7 @@ async function fetchSellerProducts(sellerId) {
 }
 
 /* ===============================
-   STORE HEADER (SAME AS store.js)
+   HEADER (+ SEARCH ADDED)
 ================================ */
 function renderStoreHeader(seller) {
   app.innerHTML = `
@@ -122,23 +130,65 @@ function renderStoreHeader(seller) {
 
     <section>
       <h2>Products</h2>
+
+      <!-- SEARCH (ADDED) -->
+      <div class="search-box">
+        <input
+          type="text"
+          id="productSearch"
+          class="search-input"
+          placeholder="Search products..."
+        />
+      </div>
+
+      <!-- PRODUCTS -->
       <div id="products" class="products-grid"></div>
+
+      <!-- PAGINATION (ADDED) -->
+      <div id="pagination" class="pagination"></div>
     </section>
   `;
 }
 
 /* ===============================
-   PRODUCTS (SAME AS store.js)
+   PRODUCTS (UPDATED FOR SEARCH + PAGINATION)
 ================================ */
 function renderProducts(products) {
-  const container = document.getElementById("products");
+  ALL_PRODUCTS = products;
+  FILTERED_PRODUCTS = products;
 
-  if (!products.length) {
-    container.innerHTML = "<p>No products yet.</p>";
+  const searchInput = document.getElementById("productSearch");
+
+  searchInput.addEventListener("input", (e) => {
+    const value = e.target.value.toLowerCase().trim();
+
+    FILTERED_PRODUCTS = ALL_PRODUCTS.filter((p) =>
+      p.name.toLowerCase().includes(value),
+    );
+
+    currentPage = 1;
+    renderProductPage();
+  });
+
+  renderProductPage();
+}
+
+function renderProductPage() {
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+
+  if (!FILTERED_PRODUCTS.length) {
+    container.innerHTML = "<p>No products found.</p>";
+    document.getElementById("pagination").innerHTML = "";
     return;
   }
 
-  products.forEach((p) => {
+  const start = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const end = start + PRODUCTS_PER_PAGE;
+
+  const paginated = FILTERED_PRODUCTS.slice(start, end);
+
+  paginated.forEach((p) => {
     const card = document.createElement("div");
     card.className = "product-card";
 
@@ -150,8 +200,59 @@ function renderProducts(products) {
     `;
 
     card.querySelector("button").onclick = () => addToCart(p);
+
     container.appendChild(card);
   });
+
+  renderPagination();
+}
+
+/* ===============================
+   PAGINATION
+================================ */
+function renderPagination() {
+  const pagination = document.getElementById("pagination");
+  pagination.innerHTML = "";
+
+  const totalPages = Math.ceil(FILTERED_PRODUCTS.length / PRODUCTS_PER_PAGE);
+
+  if (totalPages <= 1) return;
+
+  const prevBtn = document.createElement("button");
+  prevBtn.textContent = "← Prev";
+  prevBtn.disabled = currentPage === 1;
+
+  prevBtn.onclick = () => {
+    currentPage--;
+    renderProductPage();
+  };
+
+  pagination.appendChild(prevBtn);
+
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement("button");
+    btn.textContent = i;
+
+    if (i === currentPage) btn.classList.add("active");
+
+    btn.onclick = () => {
+      currentPage = i;
+      renderProductPage();
+    };
+
+    pagination.appendChild(btn);
+  }
+
+  const nextBtn = document.createElement("button");
+  nextBtn.textContent = "Next →";
+  nextBtn.disabled = currentPage === totalPages;
+
+  nextBtn.onclick = () => {
+    currentPage++;
+    renderProductPage();
+  };
+
+  pagination.appendChild(nextBtn);
 }
 
 /* ===============================
@@ -186,35 +287,6 @@ function decreaseQty(id) {
 window.increaseQty = increaseQty;
 window.decreaseQty = decreaseQty;
 
-function updateCartUI() {
-  document.getElementById("cartCount").textContent = CART.reduce(
-    (sum, p) => sum + p.qty,
-    0,
-  );
-
-  const list = document.getElementById("cartItems");
-  list.innerHTML = "";
-
-  CART.forEach((p) => {
-    const row = document.createElement("div");
-    row.className = "cart-item";
-
-    row.innerHTML = `
-      <span>${p.name}</span>
-
-      <div class="cart-controls">
-        <button onclick="window.decreaseQty('${p.id}')">−</button>
-        <strong>${p.qty}</strong>
-        <button onclick="window.increaseQty('${p.id}')">+</button>
-      </div>
-
-      <span>₦${p.price * p.qty}</span>
-    `;
-
-    list.appendChild(row);
-  });
-}
-
 /* ===============================
    CART UI
 ================================ */
@@ -244,6 +316,38 @@ function renderCartUI() {
     cart.classList.remove("show");
 
   document.getElementById("checkoutBtn").onclick = checkout;
+}
+
+/* ===============================
+   CART UPDATE
+================================ */
+function updateCartUI() {
+  document.getElementById("cartCount").textContent = CART.reduce(
+    (sum, p) => sum + p.qty,
+    0,
+  );
+
+  const list = document.getElementById("cartItems");
+  list.innerHTML = "";
+
+  CART.forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "cart-item";
+
+    row.innerHTML = `
+      <span>${p.name}</span>
+
+      <div class="cart-controls">
+        <button onclick="window.decreaseQty('${p.id}')">−</button>
+        <strong>${p.qty}</strong>
+        <button onclick="window.increaseQty('${p.id}')">+</button>
+      </div>
+
+      <span>₦${p.price * p.qty}</span>
+    `;
+
+    list.appendChild(row);
+  });
 }
 
 /* ===============================
