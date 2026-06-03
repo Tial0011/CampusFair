@@ -57,6 +57,13 @@ document.head.appendChild(style);
 /* ===============================
    BASE UI
 ================================ */
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 function renderBaseUI() {
   app.innerHTML = `
     <header class="header">
@@ -202,16 +209,15 @@ function renderProducts(products) {
         Sold by <a href="${storeLink}">${p.storeName}</a>
       </p>
       <p class="price">₦${p.price}</p>
-      <button ${!p.sellerPhone ? "disabled" : ""}>
-        Order on WhatsApp
+      <button>
+        View Store
       </button>
     `;
 
-    if (p.sellerPhone) {
-      card.querySelector("button").onclick = () => {
-        window.open(whatsappLink, "_blank");
-      };
-    }
+    card.querySelector("button").onclick = () => {
+      const storeSlug = slugify(p.storeName);
+      window.location.href = `/s/${storeSlug}`;
+    };
 
     container.appendChild(card);
   });
